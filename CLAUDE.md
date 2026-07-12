@@ -10,9 +10,11 @@ pin map, and wiring diagram.
 ## Commands
 
 ```sh
-pio run              # build
-pio run -t upload    # flash over USB (DFU)
-pio device monitor   # serial monitor
+pio run                            # build firmware
+pio run -t upload                  # flash over USB (DFU)
+pio device monitor                 # serial monitor
+pio test -e native                 # run host unit tests (no board needed)
+pio test -e arduino_nano_esp32     # run on-target tests (board attached)
 ```
 
 ## Project structure
@@ -30,6 +32,9 @@ src/
     rgb_leds.*       # 2x HW-159 (WS2812)
   domains/           # one file pair per business-logic domain
                      # (e.g. limb motion tracking, sound synthesis, UI)
+test/
+  native/            # host unit tests, one test_<domain> dir per domain
+  embedded/          # on-target smoke tests (drivers)
 ```
 
 - **One module per file pair.** Every driver and every business-logic domain
@@ -76,9 +81,36 @@ src/
   init (`[imu] ok`, `[audio] FAILED`, ...). Keep per-loop logging behind a
   compile-time flag so it can't starve the loop.
 
+## Testing
+
+Test as much as possible on the host, before anything is flashed. Two tiers,
+both on PlatformIO's Unity test runner:
+
+- **Host-native tests (`pio test -e native`) — the default, where coverage
+  lives.** All `domains/` code must compile and run on the host: no
+  `Arduino.h`, no driver includes, no hardware types. Domains consume plain
+  data (IMU samples in, sound/servo/LED commands out) and receive time as a
+  parameter instead of calling `millis()`, so every state machine is
+  deterministic and testable with synthetic sensor data — including edge
+  cases that are hard to produce physically (impacts, sensor dropout,
+  simultaneous limb movement).
+- **On-target smoke tests (`pio test -e arduino_nano_esp32`) — sparingly.**
+  Short Unity tests that run on the board to verify real hardware: each mux
+  channel answers WHO_AM_I, display init succeeds, I2S starts. These verify
+  wiring and drivers, not logic.
+
+Rules:
+
+- New domain logic ships with host tests in the same commit.
+- If a piece of domain code can't be tested on the host, that's a design
+  smell — restructure it (extract the pure logic, inject the dependency)
+  rather than skipping the test.
+- Drivers stay thin precisely so untested code is minimal: a driver method
+  should do I/O and nothing else worth testing.
+
 ## Workflow
 
 - Code must compile clean: fix warnings, don't suppress them.
-- `pio run` must pass before every commit.
+- `pio run` and `pio test -e native` must pass before every commit.
 - Hardware-behavior claims in commit messages only when actually flashed and
   observed (say "builds" vs. "tested on device").
