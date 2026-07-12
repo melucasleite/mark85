@@ -2,7 +2,8 @@
 
 Firmware for an Iron Man suit movement-sound system on the Arduino Nano ESP32
 (ESP32-S3), built with PlatformIO. Four IMUs (one per limb) drive synthesized
-electro-mechanical suit sounds on two I²S outputs, alongside servos, RGB
+electro-mechanical suit sounds on two I²S outputs — left speaker for left-limb
+movement, right speaker for right-limb movement — alongside servos, RGB
 lighting, and a status display. See `README.md` for the hardware inventory,
 pin map, and wiring diagram.
 
@@ -23,8 +24,8 @@ src/
   drivers/           # one file pair (.h/.cpp) per physical peripheral
     imu_array.*      # 4x MPU-6050 (one per limb) behind the HW-617 mux
     display.*        # ST7789V2 LCD
-    audio_out_a.*    # I2S0 output
-    audio_out_b.*    # I2S1 output
+    audio_out_left.*   # I2S0 -> left speaker (left arm/leg sounds)
+    audio_out_right.*  # I2S1 -> right speaker (right arm/leg sounds)
     servos.*         # 4x servo (LEDC)
     rgb_leds.*       # 2x HW-159 (WS2812)
   domains/           # one file pair per business-logic domain

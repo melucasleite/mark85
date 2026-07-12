@@ -3,8 +3,9 @@
 Iron Man suit movement-sound system built on the **Arduino Nano ESP32**
 (ESP32-S3). One IMU per limb (left arm, right arm, left leg, right leg) tracks
 motion, and the firmware synthesizes the electro-mechanical sounds of the suit
-in response, played through two I²S audio outputs. Servos, RGB lighting, and a
-status display complete the suit hardware.
+in response, played through two I²S audio outputs: the left speaker plays
+left-limb movement sounds, the right speaker plays right-limb movement sounds.
+Servos, RGB lighting, and a status display complete the suit hardware.
 
 ## Hardware
 
@@ -13,8 +14,8 @@ status display complete the suit hardware.
 | Arduino Nano ESP32 (ESP32-S3)                 | 1   | —          | 3.3 V logic on all GPIOs                       |
 | MPU-6050 IMU (GY-521 style)                   | 4   | I²C @ 0x68 | One per limb: L/R arm, L/R leg, behind the mux |
 | HW-617 I²C multiplexer (PCA9548A/TCA9548A)    | 1   | I²C @ 0x70 | 8 channels; we use 0–3                         |
-| I²S audio output A (e.g. MAX98357A amp / DAC) | 1   | I²S0       | Movement sound effects — output only           |
-| I²S audio output B (e.g. MAX98357A amp / DAC) | 1   | I²S1       | Movement sound effects — output only           |
+| I²S audio output A (e.g. MAX98357A amp / DAC) | 1   | I²S0       | Left speaker — left arm/leg sounds             |
+| I²S audio output B (e.g. MAX98357A amp / DAC) | 1   | I²S1       | Right speaker — right arm/leg sounds           |
 | Hobby servo                                   | 4   | PWM (LEDC) | External 5 V supply required                   |
 | Waveshare 1.69" LCD, 240×280, ST7789V2        | 1   | SPI        | MOSI-only (no MISO needed)                     |
 | HW-159 addressable RGB LED (WS2812/NeoPixel)  | 2   | RMT        | Two independent data buses, no daisy chain     |
@@ -71,8 +72,8 @@ graph LR
 
     SPI --> LCD["Waveshare 1.69&quot;<br/>ST7789V2 240×280"]
 
-    I2S0 --> AUDA["Audio out A<br/>(e.g. MAX98357A)"]
-    I2S1 --> AUDB["Audio out B<br/>(e.g. MAX98357A)"]
+    I2S0 --> AUDA["Left speaker<br/>left-limb sounds"]
+    I2S1 --> AUDB["Right speaker<br/>right-limb sounds"]
 
     PWM --> S1["Servo 1"]
     PWM --> S2["Servo 2"]
