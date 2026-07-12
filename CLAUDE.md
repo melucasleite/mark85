@@ -1,7 +1,10 @@
 # mark85 — Coding Guidelines
 
-Firmware for the Arduino Nano ESP32 (ESP32-S3) built with PlatformIO.
-See `README.md` for the hardware inventory, pin map, and wiring diagram.
+Firmware for an Iron Man suit movement-sound system on the Arduino Nano ESP32
+(ESP32-S3), built with PlatformIO. Four IMUs (one per limb) drive synthesized
+electro-mechanical suit sounds on two I²S outputs, alongside servos, RGB
+lighting, and a status display. See `README.md` for the hardware inventory,
+pin map, and wiring diagram.
 
 ## Commands
 
@@ -18,14 +21,14 @@ src/
   main.cpp           # setup()/loop() only — wiring and scheduling, no logic
   config.h           # ALL pin assignments and hardware constants
   drivers/           # one file pair (.h/.cpp) per physical peripheral
-    imu_array.*      # 4x MPU-6050 behind the HW-617 mux
+    imu_array.*      # 4x MPU-6050 (one per limb) behind the HW-617 mux
     display.*        # ST7789V2 LCD
-    audio_out.*      # I2S0
-    audio_in.*       # I2S1
+    audio_out_a.*    # I2S0 output
+    audio_out_b.*    # I2S1 output
     servos.*         # 4x servo (LEDC)
     rgb_leds.*       # 2x HW-159 (WS2812)
   domains/           # one file pair per business-logic domain
-                     # (e.g. motion tracking, audio pipeline, UI)
+                     # (e.g. limb motion tracking, sound synthesis, UI)
 ```
 
 - **One module per file pair.** Every driver and every business-logic domain
