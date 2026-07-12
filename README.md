@@ -13,6 +13,7 @@ Motion + audio + display platform built on the **Arduino Nano ESP32** (ESP32-S3)
 | I²S audio interface B (e.g. INMP441 mic / ADC)   | 1   | I²S1       | Standard Philips I²S                         |
 | Hobby servo                                      | 4   | PWM (LEDC) | External 5 V supply required                 |
 | Waveshare 1.69" LCD, 240×280, ST7789V2           | 1   | SPI        | MOSI-only (no MISO needed)                   |
+| HW-159 addressable RGB LED (WS2812/NeoPixel)     | 2   | RMT        | Two independent data buses, no daisy chain   |
 
 ## Pin assignments
 
@@ -36,8 +37,10 @@ Motion + audio + display platform built on the **Arduino Nano ESP32** (ESP32-S3)
 | D3       | GPIO6         | Servo 2 PWM   | Servo 2 signal   |
 | D4       | GPIO7         | Servo 3 PWM   | Servo 3 signal   |
 | D5       | GPIO8         | Servo 4 PWM   | Servo 4 signal   |
+| D6       | GPIO9         | RGB data 1    | HW-159 #1 DIN    |
+| D12      | GPIO47        | RGB data 2    | HW-159 #2 DIN    |
 
-Free for future use: `D0/RX`, `D1/TX`, `D6`, `D12 (MISO)`.
+Free for future use: `D0/RX`, `D1/TX`.
 
 > **Note:** `D13` doubles as `LED_BUILTIN` on the Nano ESP32. Once the display
 > is wired, the classic blink-on-13 sketch conflicts with SPI SCK — use the
@@ -53,6 +56,7 @@ graph LR
         I2S0["I²S0<br/>A0 BCLK / A1 WS / A2 DOUT"]
         I2S1["I²S1<br/>A3 BCLK / A6 WS / A7 DIN"]
         PWM["LEDC PWM<br/>D2 D3 D4 D5"]
+        RMT["RMT<br/>D6 / D12"]
     end
 
     I2C --> MUX["HW-617 mux<br/>PCA9548A @ 0x70"]
@@ -71,6 +75,9 @@ graph LR
     PWM --> S3["Servo 3"]
     PWM --> S4["Servo 4"]
 
+    RMT -- "D6" --> RGB1["HW-159 RGB #1<br/>WS2812"]
+    RMT -- "D12" --> RGB2["HW-159 RGB #2<br/>WS2812"]
+
     PSU["External 5 V supply"] -.->|"5 V"| S1 & S2 & S3 & S4
     PSU -.->|"GND common with Nano"| NANO
 ```
@@ -84,6 +91,12 @@ graph LR
   per servo). Never feed them from the Nano's 3V3/5V pins. Tie the supply
   ground to the Nano's GND. The 3.3 V PWM signal is accepted by standard
   hobby servos.
+- **HW-159 RGB modules**: power them from the **3V3 rail**, not 5 V. A WS2812
+  needs a data-high level of ≥ 0.7 × VDD; at 5 V supply that's 3.5 V, which the
+  S3's 3.3 V GPIO can't guarantee. At a 3.3 V supply the modules run slightly
+  dimmer but the data levels are always valid — no level shifter needed. If
+  you later want them at full 5 V brightness, add a level shifter (e.g.
+  74AHCT125) on each data line.
 - All I²C/SPI/I²S devices are 3.3 V — no level shifting needed anywhere.
 
 ## Feasibility notes
@@ -101,7 +114,12 @@ graph LR
 - **ST7789V2 240×280**: supported by Adafruit_ST7789 / LovyanGFX / TFT_eSPI —
   configure a 20-pixel row offset (the panel is 240×280 within a 240×320
   controller memory).
-- **Pin budget**: 18 of ~22 usable GPIOs are assigned; 4 remain free.
+- **2× HW-159 (WS2812)**: driven by the S3's RMT peripheral, which has 4 TX
+  channels — two independent buses are no problem and don't touch LEDC or I²S
+  resources. Adafruit_NeoPixel and FastLED both handle multiple instances on
+  separate pins out of the box.
+- **Pin budget**: 20 of ~22 usable GPIOs are assigned; only the UART pair
+  (`D0/D1`) remains free — the board is now effectively full.
 
 ## Build & flash
 
