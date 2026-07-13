@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 
 // Single source of truth for all pin assignments and hardware constants.
@@ -31,6 +32,16 @@ inline constexpr uint8_t kLcdBacklightPin = 10; // D7
 inline constexpr uint16_t kLcdWidth = 240;
 inline constexpr uint16_t kLcdHeight = 280;
 inline constexpr uint32_t kLcdSpiHz = 40000000;
+
+// --- I2S audio outputs: left = I2S0, right = I2S1 ---
+inline constexpr uint8_t kAudioLeftBclkPin = 1;     // A0
+inline constexpr uint8_t kAudioLeftLrclkPin = 2;    // A1
+inline constexpr uint8_t kAudioLeftDoutPin = 3;     // A2
+inline constexpr uint8_t kAudioRightBclkPin = 4;    // A3
+inline constexpr uint8_t kAudioRightLrclkPin = 13;  // A6
+inline constexpr uint8_t kAudioRightDoutPin = 14;   // A7
+inline constexpr uint32_t kAudioSampleRateHz = 22050;
+inline constexpr size_t kAudioChunkSamples = 128;
 
 // --- Scheduling ---
 inline constexpr uint32_t kImuSamplePeriodMs = 20;  // 50 Hz sensor reads
