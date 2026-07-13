@@ -1,0 +1,87 @@
+#include <unity.h>
+
+#include <cstdlib>
+
+#include "domains/suit_sound.h"
+
+namespace {
+constexpr uint32_t kRate = 22050;
+constexpr size_t kChunk = 256;
+constexpr float kDt = 0.02f;
+
+int16_t peak(const int16_t* buf, size_t n) {
+  int16_t p = 0;
+  for (size_t i = 0; i < n; ++i) {
+    const int16_t a = static_cast<int16_t>(std::abs(buf[i]));
+    if (a > p) p = a;
+  }
+  return p;
+}
+
+ImuSample moving_sample() {
+  ImuSample s;
+  s.gyro_raw[0] = 26200;  // ~200 dps -> full intensity
+  s.valid = true;
+  return s;
+}
+}  // namespace
+
+void setUp() {}
+void tearDown() {}
+
+static void test_left_limbs_drive_left_channel_only() {
+  suit_sound::State state;
+  ImuSample samples[4];                          // all idle/invalid
+  samples[suit_sound::kLeftArm] = moving_sample();  // only L-ARM moves
+
+  int16_t left[kChunk];
+  int16_t right[kChunk];
+  for (int i = 0; i < 25; ++i) {  // half a second of motion
+    suit_sound::update_motion(state, samples, kDt);
+    suit_sound::render_left(state, kRate, left, kChunk);
+    suit_sound::render_right(state, kRate, right, kChunk);
+  }
+
+  TEST_ASSERT_TRUE_MESSAGE(peak(left, kChunk) > 5000,
+                           "left channel should be loud");
+  TEST_ASSERT_EQUAL_INT16_MESSAGE(0, peak(right, kChunk),
+                                  "right channel should stay silent");
+}
+
+static void test_right_leg_drives_right_channel() {
+  suit_sound::State state;
+  ImuSample samples[4];
+  samples[suit_sound::kRightLeg] = moving_sample();
+
+  int16_t left[kChunk];
+  int16_t right[kChunk];
+  for (int i = 0; i < 25; ++i) {
+    suit_sound::update_motion(state, samples, kDt);
+    suit_sound::render_left(state, kRate, left, kChunk);
+    suit_sound::render_right(state, kRate, right, kChunk);
+  }
+
+  TEST_ASSERT_TRUE(peak(right, kChunk) > 5000);
+  TEST_ASSERT_EQUAL_INT16(0, peak(left, kChunk));
+}
+
+static void test_all_idle_is_all_silent() {
+  suit_sound::State state;
+  ImuSample samples[4];  // everything invalid -> zero intensity
+  int16_t buf[kChunk];
+  suit_sound::update_motion(state, samples, kDt);
+  suit_sound::render_left(state, kRate, buf, kChunk);
+  TEST_ASSERT_EQUAL_INT16(0, peak(buf, kChunk));
+  suit_sound::render_right(state, kRate, buf, kChunk);
+  TEST_ASSERT_EQUAL_INT16(0, peak(buf, kChunk));
+}
+
+int main(int argc, char** argv) {
+  (void)argc;
+  (void)argv;
+  UNITY_BEGIN();
+  RUN_TEST(test_left_limbs_drive_left_channel_only);
+  RUN_TEST(test_right_leg_drives_right_channel);
+  RUN_TEST(test_all_idle_is_all_silent);
+  return UNITY_END();
+}

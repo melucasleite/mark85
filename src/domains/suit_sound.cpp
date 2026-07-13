@@ -1,0 +1,30 @@
+#include "suit_sound.h"
+
+namespace suit_sound {
+
+void update_motion(State& state, const ImuSample samples[4], float dt_s) {
+  motion_intensity::update(
+      state.left.intensity,
+      motion_intensity::limb_pair_intensity(samples[kLeftArm],
+                                            samples[kLeftLeg]),
+      dt_s);
+  motion_intensity::update(
+      state.right.intensity,
+      motion_intensity::limb_pair_intensity(samples[kRightArm],
+                                            samples[kRightLeg]),
+      dt_s);
+}
+
+void render_left(State& state, uint32_t sample_rate_hz, int16_t* out,
+                 size_t count) {
+  sound_synth::fill(state.left.synth, state.left.intensity.level,
+                    sample_rate_hz, out, count);
+}
+
+void render_right(State& state, uint32_t sample_rate_hz, int16_t* out,
+                  size_t count) {
+  sound_synth::fill(state.right.synth, state.right.intensity.level,
+                    sample_rate_hz, out, count);
+}
+
+}  // namespace suit_sound

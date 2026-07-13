@@ -26,8 +26,7 @@ src/
   drivers/           # one file pair (.h/.cpp) per physical peripheral
     imu_array.*      # 4x MPU-6050 (one per limb) behind the HW-617 mux
     display.*        # ST7789V2 LCD
-    audio_out_left.*   # I2S0 -> left speaker (left arm/leg sounds)
-    audio_out_right.*  # I2S1 -> right speaker (right arm/leg sounds)
+    audio_out.*      # I2S TX driver; two instances (I2S0 left, I2S1 right)
     servos.*         # 4x servo (LEDC)
     rgb_leds.*       # 2x HW-159 (WS2812)
   domains/           # one file pair per business-logic domain
