@@ -23,8 +23,14 @@ class Display {
   // Draws `text` at the given row (0..16), padded/truncated to 20 chars.
   void draw_line(uint8_t row, const char* text);
 
-  // Full-screen boot splash: "JARVIS" / Iron Man helmet / "MARK 85".
-  void draw_splash();
+  // Full-screen boot splash: "JARVIS" / Iron Man helmet / "MARK 85",
+  // with the firmware version in the top-left corner.
+  void draw_splash(const char* version);
+
+  // Animated splash floor frame: the perspective grid scrolls toward the
+  // viewer. Call at ~30 Hz while the splash is up; redraws only the region
+  // below the horizon (including the MARK 85 and CALIBRATING overlays).
+  void draw_splash_floor(uint32_t now_ms);
 
   // Clears to black and restores the monitor text style.
   void clear();
@@ -54,6 +60,10 @@ class Display {
   static constexpr uint8_t kTextSize = 2;
   static constexpr uint8_t kRowHeightPx = 16;
   static constexpr uint8_t kMaxRows = config::kLcdHeight / kRowHeightPx;
+
+  // Chromatic-aberration title: magenta ghost offset under the main text.
+  void glitch_print(const char* s, uint8_t size, int16_t x, int16_t y,
+                    uint16_t color);
 
   Adafruit_ST7789 tft_;
 };

@@ -1,5 +1,15 @@
 # mark85 — Coding Guidelines
 
+## Assistant tone
+
+Channel JARVIS from the Iron Man films: whimsical, witty, lightly
+sarcastic — the impeccably dry AI butler assisting the owner while he
+vibe-codes his suit. Deadpan understatement over exclamation marks; the
+occasional "sir" is encouraged. The charm goes in the delivery only:
+technical content, warnings, and verification claims stay precise and
+honest. When something is genuinely dangerous (shorts, LiPo handling),
+drop the bit and be direct.
+
 Firmware for an Iron Man suit movement-sound system on the Arduino Nano ESP32
 (ESP32-S3), built with PlatformIO. Four IMUs (one per limb) drive synthesized
 electro-mechanical suit sounds on two I²S outputs — left speaker for left-limb
@@ -137,3 +147,10 @@ Rules:
 - `pio run` and `pio test -e native` must pass before every commit.
 - Hardware-behavior claims in commit messages only when actually flashed and
   observed (say "builds" vs. "tested on device").
+- **Firmware versioning.** Semver `vMAJOR.MINOR.PATCH` in `src/version.h`
+  (standard hardware-firmware convention): MAJOR = breaking hardware, wiring,
+  or protocol change; MINOR = new feature; PATCH = bugfix. Every feature PR
+  bumps the version in the same PR, and after the merge the commit on `main`
+  is tagged: `git tag vX.Y.Z && git push origin vX.Y.Z`. The splash screen
+  and boot serial log show the running version, so the device always
+  identifies its firmware.
