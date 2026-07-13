@@ -5,6 +5,7 @@
 #include "domains/boot_sequence.h"
 #include "domains/imu_telemetry.h"
 #include "domains/imu_types.h"
+#include "domains/pose_calibration.h"
 #include "domains/suit_sound.h"
 #include "drivers/audio_out.h"
 #include "drivers/display.h"
@@ -23,6 +24,8 @@ AudioOut audio_right(1, config::kAudioRightBclkPin,
 
 ImuSample samples[config::kImuCount];
 suit_sound::State sound;
+// Neutral-pose gravity is captured per limb while the splash shows.
+pose_calibration::Calibrator calibrators[config::kImuCount];
 uint32_t boot_ms = 0;
 bool monitor_started = false;
 uint32_t last_sample_ms = 0;
@@ -91,22 +94,39 @@ void setup() {
 
 void loop() {
   const uint32_t now = millis();
-
-  if (boot_sequence::phase_at(boot_ms, now) == boot_sequence::Phase::kSplash) {
-    return;
-  }
-  if (!monitor_started) {
-    monitor_started = true;
-    display.begin_monitor_screen();
-  }
+  const bool in_splash =
+      boot_sequence::phase_at(boot_ms, now) == boot_sequence::Phase::kSplash;
 
   if (now - last_sample_ms >= config::kImuSamplePeriodMs) {
     last_sample_ms = now;
     for (uint8_t i = 0; i < config::kImuCount; ++i) {
       imu_array.read(i, samples[i]);
     }
-    suit_sound::update_motion(sound, samples, now,
-                              config::kImuSamplePeriodMs / 1000.0f);
+    if (in_splash) {
+      // The splash doubles as the calibration window: the wearer stands in
+      // the neutral pose while each limb's gravity direction is averaged.
+      for (uint8_t i = 0; i < config::kImuCount; ++i) {
+        pose_calibration::feed(calibrators[i], samples[i]);
+      }
+    } else {
+      suit_sound::update_motion(sound, samples, now,
+                                config::kImuSamplePeriodMs / 1000.0f);
+    }
+  }
+
+  if (in_splash) {
+    return;
+  }
+  if (!monitor_started) {
+    monitor_started = true;
+    sound.left.arm_down =
+        pose_calibration::finalize(calibrators[suit_sound::kLeftArm]);
+    sound.right.arm_down =
+        pose_calibration::finalize(calibrators[suit_sound::kRightArm]);
+    Serial.printf("[cal] L-ARM %s, R-ARM %s\n",
+                  sound.left.arm_down.valid ? "ok" : "FAILED (blaster off)",
+                  sound.right.arm_down.valid ? "ok" : "FAILED (blaster off)");
+    display.begin_monitor_screen();
   }
 
   pump_audio(feed_left, audio_left, suit_sound::render_left);
@@ -115,8 +135,10 @@ void loop() {
   if (now - last_led_ms >= config::kLedPeriodMs) {
     last_led_ms = now;
     RgbColor jewel[blaster_charge::kLedCount];
-    blaster_charge::render_leds(sound.blaster.charge, now, jewel);
+    blaster_charge::render_leds(sound.left.blaster.charge, now, jewel);
     rgb_leds.show_left(jewel, blaster_charge::kLedCount);
+    blaster_charge::render_leds(sound.right.blaster.charge, now, jewel);
+    rgb_leds.show_right(jewel, blaster_charge::kLedCount);
   }
 
   if (now - last_draw_ms >= config::kDisplayPeriodMs) {

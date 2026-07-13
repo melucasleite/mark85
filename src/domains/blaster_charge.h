@@ -3,6 +3,7 @@
 #include <cstdint>
 
 #include "imu_types.h"
+#include "pose_calibration.h"
 #include "rgb_types.h"
 
 // Left-hand blaster: raising the arm charges the repulsor — a smooth 0..1
@@ -12,13 +13,13 @@
 
 namespace blaster_charge {
 
-// Arm-raised detection from the left-arm accelerometer: gravity along the
-// forearm axis. Axis/sign depend on how the IMU is mounted — tune on the
-// suit. Hysteresis plus debounce so wobble at the threshold can't flicker.
-inline constexpr uint8_t kUpAxis = 0;  // accel X along the forearm
-inline constexpr float kUpSign = 1.0f;
-inline constexpr float kRaiseThresholdG = 0.6f;
-inline constexpr float kLowerThresholdG = 0.4f;
+// Arm-raised detection: the angle between current gravity and the
+// boot-calibrated "down" reference (see pose_calibration), so it works for
+// any sensor mounting. Raised past ~120 deg, lowered back under ~90 deg —
+// wide hysteresis plus debounce so wobble at a threshold can't flicker.
+// With an invalid calibration the dot reads +1 and the blaster stays safe.
+inline constexpr float kRaiseDot = -0.5f;  // cos(120 deg)
+inline constexpr float kLowerDot = 0.0f;   // cos(90 deg)
 inline constexpr uint32_t kPoseDebounceMs = 150;
 
 // Charge ramp: ~1.2 s to full power, ~0.3 s to wind down.
@@ -37,9 +38,10 @@ struct State {
 };
 
 // Feeds one left-arm sample; advances pose detection and the charge ramp.
-// Returns the new charge level. Invalid samples read as "arm lowered".
-float update(State& state, const ImuSample& left_arm, uint32_t now_ms,
-             float dt_s);
+// Returns the new charge level. Invalid samples or an invalid calibration
+// reference read as "arm lowered".
+float update(State& state, const pose_calibration::Reference& down_ref,
+             const ImuSample& left_arm, uint32_t now_ms, float dt_s);
 
 // Renders the jewel for a charge level: ring fills clockwise as charge
 // builds (deep blue warming to cyan-white), center pulses white when primed.

@@ -69,11 +69,19 @@ static void test_right_leg_drives_right_channel() {
   TEST_ASSERT_EQUAL_INT16(0, peak(left, kChunk));
 }
 
+static pose_calibration::Reference down_x() {
+  pose_calibration::Reference r;
+  r.unit[0] = 1.0f;
+  r.valid = true;
+  return r;
+}
+
 static void test_raised_left_arm_charges_left_channel() {
   suit_sound::State state;
+  state.left.arm_down = down_x();
   ImuSample samples[4];
-  // Arm held up and still: gravity along the forearm axis, no rotation.
-  samples[suit_sound::kLeftArm].accel_raw[blaster_charge::kUpAxis] = 16384;
+  // Arm held overhead and still: gravity inverted vs the calibrated down.
+  samples[suit_sound::kLeftArm].accel_raw[0] = -16384;
   samples[suit_sound::kLeftArm].valid = true;
 
   int16_t left[kChunk];
@@ -90,7 +98,7 @@ static void test_raised_left_arm_charges_left_channel() {
   TEST_ASSERT_EQUAL_INT16(0, peak(right, kChunk));
 
   // Lower the arm: charge winds down and the sound fully stops.
-  samples[suit_sound::kLeftArm].accel_raw[blaster_charge::kUpAxis] = 0;
+  samples[suit_sound::kLeftArm].accel_raw[0] = 16384;
   for (int i = 0; i < 40; ++i) {  // 800 ms lowered
     now += 20;
     suit_sound::update_motion(state, samples, now, kDt);
@@ -98,6 +106,44 @@ static void test_raised_left_arm_charges_left_channel() {
   }
   TEST_ASSERT_EQUAL_INT16_MESSAGE(0, peak(left, kChunk),
                                   "charge sound must stop when lowered");
+}
+
+static void test_raised_right_arm_charges_right_channel() {
+  suit_sound::State state;
+  state.right.arm_down = down_x();
+  ImuSample samples[4];
+  samples[suit_sound::kRightArm].accel_raw[0] = -16384;
+  samples[suit_sound::kRightArm].valid = true;
+
+  int16_t left[kChunk];
+  int16_t right[kChunk];
+  uint32_t now = 0;
+  for (int i = 0; i < 50; ++i) {
+    now += 20;
+    suit_sound::update_motion(state, samples, now, kDt);
+    suit_sound::render_left(state, kRate, left, kChunk);
+    suit_sound::render_right(state, kRate, right, kChunk);
+  }
+  TEST_ASSERT_TRUE_MESSAGE(peak(right, kChunk) > 2000,
+                           "charge voice should sound on the right");
+  TEST_ASSERT_EQUAL_INT16(0, peak(left, kChunk));
+}
+
+static void test_uncalibrated_arm_never_charges() {
+  suit_sound::State state;  // both references invalid
+  ImuSample samples[4];
+  samples[suit_sound::kLeftArm].accel_raw[0] = -16384;
+  samples[suit_sound::kLeftArm].valid = true;
+
+  int16_t left[kChunk];
+  uint32_t now = 0;
+  for (int i = 0; i < 100; ++i) {
+    now += 20;
+    suit_sound::update_motion(state, samples, now, kDt);
+    suit_sound::render_left(state, kRate, left, kChunk);
+  }
+  TEST_ASSERT_EQUAL_INT16_MESSAGE(0, peak(left, kChunk),
+                                  "no calibration -> blaster stays off");
 }
 
 static void test_all_idle_is_all_silent() {
@@ -118,6 +164,8 @@ int main(int argc, char** argv) {
   RUN_TEST(test_left_limbs_drive_left_channel_only);
   RUN_TEST(test_right_leg_drives_right_channel);
   RUN_TEST(test_raised_left_arm_charges_left_channel);
+  RUN_TEST(test_raised_right_arm_charges_right_channel);
+  RUN_TEST(test_uncalibrated_arm_never_charges);
   RUN_TEST(test_all_idle_is_all_silent);
   return UNITY_END();
 }
