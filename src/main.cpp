@@ -6,17 +6,20 @@
 #include "domains/imu_telemetry.h"
 #include "domains/imu_types.h"
 #include "domains/pose_calibration.h"
+#include "domains/servo_sweep.h"
 #include "domains/suit_sound.h"
 #include "drivers/audio_out.h"
 #include "drivers/display.h"
 #include "drivers/imu_array.h"
 #include "drivers/rgb_leds.h"
+#include "drivers/servos.h"
 
 namespace {
 
 ImuArray imu_array;
 Display display;
 RgbLeds rgb_leds;
+Servos servos;
 AudioOut audio_left(0, config::kAudioLeftBclkPin, config::kAudioLeftLrclkPin,
                     config::kAudioLeftDoutPin);
 AudioOut audio_right(1, config::kAudioRightBclkPin,
@@ -31,6 +34,7 @@ bool monitor_started = false;
 uint32_t last_sample_ms = 0;
 uint32_t last_draw_ms = 0;
 uint32_t last_led_ms = 0;
+uint32_t last_servo_ms = 0;
 
 // Chunk staging between the synth and a DMA queue that may accept partial
 // writes; carries the remainder into the next loop pass.
@@ -82,6 +86,9 @@ void setup() {
 
   const bool rgb_ok = rgb_leds.begin();
   Serial.printf("[rgb] %s\n", rgb_ok ? "ok" : "FAILED");
+
+  const bool servos_ok = servos.begin();
+  Serial.printf("[servos] %s\n", servos_ok ? "ok" : "FAILED");
 
   // IMU init runs while the splash is on screen.
   const bool mux_ok = imu_array.begin();
@@ -139,6 +146,15 @@ void loop() {
     rgb_leds.show_left(jewel, blaster_charge::kLedCount);
     blaster_charge::render_leds(sound.right.blaster.charge, now, jewel);
     rgb_leds.show_right(jewel, blaster_charge::kLedCount);
+  }
+
+  if (now - last_servo_ms >= config::kServoUpdatePeriodMs) {
+    last_servo_ms = now;
+    // Bench-test sweep; will become flap control.
+    const float angle = servo_sweep::angle_at(now);
+    for (uint8_t i = 0; i < config::kServoCount; ++i) {
+      servos.set_angle(i, angle);
+    }
   }
 
   if (now - last_draw_ms >= config::kDisplayPeriodMs) {
