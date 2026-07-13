@@ -29,15 +29,26 @@ class Display {
   // Clears to black and restores the monitor text style.
   void clear();
 
-  // Telemetry screen chrome, drawn once: title bar + one neon card frame
-  // per limb (cyan accents for left limbs, magenta for right).
+  // Telemetry screen chrome, drawn once: title, section separators, static
+  // labels for limbs/meters/cal/systems, and the grid-floor footer.
   void begin_monitor_screen();
 
-  // Card header text in the limb's accent color, plus a status dot.
-  void draw_card_header(uint8_t card, const char* text, bool online);
+  // Limb online dot in a 2x2 grid (0 L-ARM, 1 R-ARM, 2 L-LEG, 3 R-LEG).
+  // Bright accent = online, dim = offline; cyan left, magenta right.
+  void draw_limb_status(uint8_t limb, bool online);
 
-  // One of the two white data lines inside a card (line 0 or 1).
-  void draw_card_value(uint8_t card, uint8_t line, const char* text);
+  // Horizontal bar meter, slot 0..3: MOV L, MOV R, CHG L, CHG R.
+  void draw_meter(uint8_t slot, float fraction);
+
+  // Per-arm calibration dots (bright = calibrated).
+  void draw_cal_status(bool left_ok, bool right_ok);
+
+  // Boot-health dots for mux / audio / rgb / servos.
+  void draw_system_status(bool mux, bool audio, bool rgb, bool servos);
+
+  // Full-width white dynamic text rows (padded in place, no flicker).
+  void draw_flap_line(const char* text);
+  void draw_uptime_line(const char* text);
 
  private:
   static constexpr uint8_t kTextSize = 2;
