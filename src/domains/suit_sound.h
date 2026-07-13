@@ -3,12 +3,14 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "blaster_charge.h"
 #include "imu_types.h"
 #include "motion_intensity.h"
 #include "sound_synth.h"
 
 // Ties limb motion to the two speakers: left limbs (L-ARM, L-LEG) drive the
-// left channel, right limbs the right channel. Pure logic, host-testable.
+// left channel, right limbs the right channel. The left-hand blaster charge
+// voice layers on top of the left channel. Pure logic, host-testable.
 
 namespace suit_sound {
 
@@ -26,10 +28,14 @@ struct Side {
 struct State {
   Side left;
   Side right;
+  blaster_charge::State blaster;
+  sound_synth::ChargeVoice charge_voice;
 };
 
-// Feeds the latest limb samples into both sides' intensity smoothing.
-void update_motion(State& state, const ImuSample samples[4], float dt_s);
+// Feeds the latest limb samples into both sides' intensity smoothing and
+// the left-hand blaster pose/charge tracking.
+void update_motion(State& state, const ImuSample samples[4], uint32_t now_ms,
+                   float dt_s);
 
 // Render mono int16 audio for one channel at the current intensity.
 void render_left(State& state, uint32_t sample_rate_hz, int16_t* out,

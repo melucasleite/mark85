@@ -36,8 +36,10 @@ static void test_left_limbs_drive_left_channel_only() {
 
   int16_t left[kChunk];
   int16_t right[kChunk];
+  uint32_t now = 0;
   for (int i = 0; i < 25; ++i) {  // half a second of motion
-    suit_sound::update_motion(state, samples, kDt);
+    now += 20;
+    suit_sound::update_motion(state, samples, now, kDt);
     suit_sound::render_left(state, kRate, left, kChunk);
     suit_sound::render_right(state, kRate, right, kChunk);
   }
@@ -55,8 +57,10 @@ static void test_right_leg_drives_right_channel() {
 
   int16_t left[kChunk];
   int16_t right[kChunk];
+  uint32_t now = 0;
   for (int i = 0; i < 25; ++i) {
-    suit_sound::update_motion(state, samples, kDt);
+    now += 20;
+    suit_sound::update_motion(state, samples, now, kDt);
     suit_sound::render_left(state, kRate, left, kChunk);
     suit_sound::render_right(state, kRate, right, kChunk);
   }
@@ -65,11 +69,42 @@ static void test_right_leg_drives_right_channel() {
   TEST_ASSERT_EQUAL_INT16(0, peak(left, kChunk));
 }
 
+static void test_raised_left_arm_charges_left_channel() {
+  suit_sound::State state;
+  ImuSample samples[4];
+  // Arm held up and still: gravity along the forearm axis, no rotation.
+  samples[suit_sound::kLeftArm].accel_raw[blaster_charge::kUpAxis] = 16384;
+  samples[suit_sound::kLeftArm].valid = true;
+
+  int16_t left[kChunk];
+  int16_t right[kChunk];
+  uint32_t now = 0;
+  for (int i = 0; i < 50; ++i) {  // 1 s raised: latched + charging
+    now += 20;
+    suit_sound::update_motion(state, samples, now, kDt);
+    suit_sound::render_left(state, kRate, left, kChunk);
+    suit_sound::render_right(state, kRate, right, kChunk);
+  }
+  TEST_ASSERT_TRUE_MESSAGE(peak(left, kChunk) > 2000,
+                           "charge voice should sound on the left");
+  TEST_ASSERT_EQUAL_INT16(0, peak(right, kChunk));
+
+  // Lower the arm: charge winds down and the sound fully stops.
+  samples[suit_sound::kLeftArm].accel_raw[blaster_charge::kUpAxis] = 0;
+  for (int i = 0; i < 40; ++i) {  // 800 ms lowered
+    now += 20;
+    suit_sound::update_motion(state, samples, now, kDt);
+    suit_sound::render_left(state, kRate, left, kChunk);
+  }
+  TEST_ASSERT_EQUAL_INT16_MESSAGE(0, peak(left, kChunk),
+                                  "charge sound must stop when lowered");
+}
+
 static void test_all_idle_is_all_silent() {
   suit_sound::State state;
   ImuSample samples[4];  // everything invalid -> zero intensity
   int16_t buf[kChunk];
-  suit_sound::update_motion(state, samples, kDt);
+  suit_sound::update_motion(state, samples, 20, kDt);
   suit_sound::render_left(state, kRate, buf, kChunk);
   TEST_ASSERT_EQUAL_INT16(0, peak(buf, kChunk));
   suit_sound::render_right(state, kRate, buf, kChunk);
@@ -82,6 +117,7 @@ int main(int argc, char** argv) {
   UNITY_BEGIN();
   RUN_TEST(test_left_limbs_drive_left_channel_only);
   RUN_TEST(test_right_leg_drives_right_channel);
+  RUN_TEST(test_raised_left_arm_charges_left_channel);
   RUN_TEST(test_all_idle_is_all_silent);
   return UNITY_END();
 }

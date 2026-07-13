@@ -53,4 +53,35 @@ void fill(State& state, float intensity, uint32_t sample_rate_hz,
   }
 }
 
+void add_charge(ChargeVoice& voice, float charge, uint32_t sample_rate_hz,
+                int16_t* buf, size_t count) {
+  if (charge < 0.0f) charge = 0.0f;
+  if (charge > 1.0f) charge = 1.0f;
+  if (charge <= 0.0f) {
+    return;
+  }
+
+  const float dt = 1.0f / static_cast<float>(sample_rate_hz);
+  // charge^2 makes the sweep accelerate — slow wind-up, fast top end.
+  const float base_freq = kChargeBaseHz + kChargeSpanHz * charge * charge;
+  const float amp = kChargeGain * charge;
+
+  for (size_t i = 0; i < count; ++i) {
+    voice.vib_phase += kTwoPi * kChargeVibratoHz * dt;
+    if (voice.vib_phase > kTwoPi) voice.vib_phase -= kTwoPi;
+    const float freq =
+        base_freq * (1.0f + kChargeVibratoDepth * charge *
+                                std::sin(voice.vib_phase));
+    voice.phase += kTwoPi * freq * dt;
+    if (voice.phase > kTwoPi) voice.phase -= kTwoPi;
+
+    const float s = amp * (0.7f * std::sin(voice.phase) +
+                           0.3f * std::sin(2.0f * voice.phase));
+    float mixed = static_cast<float>(buf[i]) + s * 32767.0f;
+    if (mixed > 32767.0f) mixed = 32767.0f;
+    if (mixed < -32767.0f) mixed = -32767.0f;
+    buf[i] = static_cast<int16_t>(mixed);
+  }
+}
+
 }  // namespace sound_synth
