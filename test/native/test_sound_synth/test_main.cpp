@@ -84,6 +84,33 @@ static void test_output_bounded_at_extremes() {
   }
 }
 
+static void test_intensity_clamped_out_of_range() {
+  // Out-of-range intensity must clamp, so >1 behaves exactly like 1 and <0
+  // like 0. Compare against the clamped boundary sample-for-sample.
+  State a;
+  State b;
+  int16_t buf_a[kChunk];
+  int16_t buf_b[kChunk];
+  fill(a, 5.0f, kRate, buf_a, kChunk);
+  fill(b, 1.0f, kRate, buf_b, kChunk);
+  TEST_ASSERT_EQUAL_MEMORY(buf_a, buf_b, sizeof(buf_a));
+
+  State c;
+  int16_t buf_c[kChunk];
+  fill(c, -3.0f, kRate, buf_c, kChunk);  // reads as 0 -> silence
+  TEST_ASSERT_EQUAL_INT16(0, peak(buf_c, kChunk));
+}
+
+static void test_charge_clamped_out_of_range() {
+  sound_synth::ChargeVoice a;
+  sound_synth::ChargeVoice b;
+  int16_t buf_a[kChunk] = {};
+  int16_t buf_b[kChunk] = {};
+  sound_synth::add_charge(a, 3.0f, kRate, buf_a, kChunk);  // clamps to 1
+  sound_synth::add_charge(b, 1.0f, kRate, buf_b, kChunk);
+  TEST_ASSERT_EQUAL_MEMORY(buf_a, buf_b, sizeof(buf_a));
+}
+
 static void test_charge_voice_silent_at_zero() {
   sound_synth::ChargeVoice v;
   int16_t buf[kChunk] = {};
@@ -120,6 +147,8 @@ int main(int argc, char** argv) {
   RUN_TEST(test_release_reaches_true_silence);
   RUN_TEST(test_deterministic);
   RUN_TEST(test_output_bounded_at_extremes);
+  RUN_TEST(test_intensity_clamped_out_of_range);
+  RUN_TEST(test_charge_clamped_out_of_range);
   RUN_TEST(test_charge_voice_silent_at_zero);
   RUN_TEST(test_charge_voice_adds_energy);
   RUN_TEST(test_charge_voice_mix_stays_bounded);

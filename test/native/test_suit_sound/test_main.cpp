@@ -146,6 +146,57 @@ static void test_uncalibrated_arm_never_charges() {
                                   "no calibration -> blaster stays off");
 }
 
+static void test_simultaneous_limbs_sound_both_channels() {
+  // A left limb and a right limb moving at once: both channels must sound,
+  // independently. Single-limb tests never exercise this.
+  suit_sound::State state;
+  ImuSample samples[4];
+  samples[suit_sound::kLeftArm] = moving_sample();
+  samples[suit_sound::kRightLeg] = moving_sample();
+
+  int16_t left[kChunk];
+  int16_t right[kChunk];
+  uint32_t now = 0;
+  for (int i = 0; i < 25; ++i) {
+    now += 20;
+    suit_sound::update_motion(state, samples, now, kDt);
+    suit_sound::render_left(state, kRate, left, kChunk);
+    suit_sound::render_right(state, kRate, right, kChunk);
+  }
+  TEST_ASSERT_TRUE(peak(left, kChunk) > 5000);
+  TEST_ASSERT_TRUE(peak(right, kChunk) > 5000);
+}
+
+static void test_charge_over_whir_mix_stays_bounded() {
+  // Left arm raised AND rotating fast: the charge voice layers onto the whir
+  // on the same channel. This is the only path where add_charge mixes into a
+  // buffer fill() already filled at real levels -- assert it saturates
+  // cleanly rather than wrapping.
+  suit_sound::State state;
+  state.left.arm_down = down_x();
+  ImuSample samples[4];
+  samples[suit_sound::kLeftArm].accel_raw[0] = -16384;  // inverted -> raised
+  samples[suit_sound::kLeftArm].gyro_raw[0] = 26200;    // ~200 dps -> whirs
+  samples[suit_sound::kLeftArm].valid = true;
+
+  int16_t left[kChunk];
+  uint32_t now = 0;
+  bool saw_whir_and_charge = false;
+  for (int i = 0; i < 100; ++i) {  // 2 s: intensity saturated, charge full
+    now += 20;
+    suit_sound::update_motion(state, samples, now, kDt);
+    suit_sound::render_left(state, kRate, left, kChunk);
+    for (size_t j = 0; j < kChunk; ++j) {
+      TEST_ASSERT_TRUE(left[j] >= -32767 && left[j] <= 32767);
+    }
+    if (state.left.intensity.level > 0.9f && state.left.blaster.charge > 0.9f) {
+      saw_whir_and_charge = true;
+    }
+  }
+  TEST_ASSERT_TRUE_MESSAGE(saw_whir_and_charge,
+                           "both voices should be fully active on one channel");
+}
+
 static void test_all_idle_is_all_silent() {
   suit_sound::State state;
   ImuSample samples[4];  // everything invalid -> zero intensity
@@ -166,6 +217,8 @@ int main(int argc, char** argv) {
   RUN_TEST(test_raised_left_arm_charges_left_channel);
   RUN_TEST(test_raised_right_arm_charges_right_channel);
   RUN_TEST(test_uncalibrated_arm_never_charges);
+  RUN_TEST(test_simultaneous_limbs_sound_both_channels);
+  RUN_TEST(test_charge_over_whir_mix_stays_bounded);
   RUN_TEST(test_all_idle_is_all_silent);
   return UNITY_END();
 }

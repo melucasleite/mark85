@@ -159,6 +159,26 @@ static void test_full_charge_lights_ring_and_center() {
   TEST_ASSERT_TRUE(px[blaster_charge::kCenterLed].r > 100);
 }
 
+static void test_render_leds_clamps_out_of_range() {
+  RgbColor over[kLedCount];
+  RgbColor full[kLedCount];
+  render_leds(5.0f, 250, over);   // clamps to 1.0
+  render_leds(1.0f, 250, full);
+  for (uint8_t i = 0; i < kLedCount; ++i) {
+    TEST_ASSERT_EQUAL_UINT8(full[i].r, over[i].r);
+    TEST_ASSERT_EQUAL_UINT8(full[i].g, over[i].g);
+    TEST_ASSERT_EQUAL_UINT8(full[i].b, over[i].b);
+  }
+
+  RgbColor under[kLedCount];
+  render_leds(-2.0f, 250, under);  // clamps to 0.0 -> dark
+  for (uint8_t i = 0; i < kLedCount; ++i) {
+    TEST_ASSERT_EQUAL_UINT8(0, under[i].r);
+    TEST_ASSERT_EQUAL_UINT8(0, under[i].g);
+    TEST_ASSERT_EQUAL_UINT8(0, under[i].b);
+  }
+}
+
 int main(int argc, char** argv) {
   (void)argc;
   (void)argv;
@@ -174,5 +194,6 @@ int main(int argc, char** argv) {
   RUN_TEST(test_leds_dark_at_zero_charge);
   RUN_TEST(test_ring_fills_with_charge);
   RUN_TEST(test_full_charge_lights_ring_and_center);
+  RUN_TEST(test_render_leds_clamps_out_of_range);
   return UNITY_END();
 }
