@@ -18,21 +18,15 @@ bool monitor_started = false;
 uint32_t last_sample_ms = 0;
 uint32_t last_draw_ms = 0;
 
-// Screen layout: title on row 0, then a 4-row block per IMU
-// (header, accel, gyro, blank).
-constexpr uint8_t kFirstImuRow = 1;
-constexpr uint8_t kRowsPerImu = 4;
-
 void draw_telemetry() {
   char line[imu_telemetry::kLineBufLen];
   for (uint8_t i = 0; i < config::kImuCount; ++i) {
-    const uint8_t row = kFirstImuRow + i * kRowsPerImu;
     imu_telemetry::format_header(i, samples[i].valid, line, sizeof(line));
-    display.draw_line(row, line);
+    display.draw_card_header(i, line, samples[i].valid);
     imu_telemetry::format_accel_line(samples[i], line, sizeof(line));
-    display.draw_line(row + 1, line);
+    display.draw_card_value(i, 0, line);
     imu_telemetry::format_gyro_line(samples[i], line, sizeof(line));
-    display.draw_line(row + 2, line);
+    display.draw_card_value(i, 1, line);
   }
 }
 
@@ -64,8 +58,7 @@ void loop() {
   }
   if (!monitor_started) {
     monitor_started = true;
-    display.clear();
-    display.draw_line(0, "MARK85 IMU MONITOR");
+    display.begin_monitor_screen();
   }
 
   if (now - last_sample_ms >= config::kImuSamplePeriodMs) {

@@ -6,6 +6,33 @@
 #include <cmath>
 #include <cstdio>
 
+namespace {
+
+// Vaporwave RGB565 palette, shared by the splash and telemetry screens
+constexpr uint16_t kMagenta = 0xF81F;
+constexpr uint16_t kMagentaDim = 0x780F;
+constexpr uint16_t kCyan = 0x07FF;
+constexpr uint16_t kWhite = 0xFFFF;
+constexpr uint16_t kShellFill = 0x1867;  // dark blue-purple
+constexpr uint16_t kFaceFill = 0x0863;   // near-black indigo
+
+// Telemetry screen layout: title bar + 4 limb cards
+constexpr int16_t kCardX = 2;
+constexpr int16_t kCardW = 236;
+constexpr int16_t kCardH = 58;
+constexpr int16_t kCardPitch = 62;
+constexpr int16_t kCardsTop = 32;
+constexpr int16_t kCardTextX = 6;
+constexpr size_t kCardLineChars = 19;
+
+int16_t card_top(uint8_t card) { return kCardsTop + card * kCardPitch; }
+
+// Left limbs (cards 0, 2) are cyan; right limbs (1, 3) magenta —
+// mirroring the left/right speaker split.
+uint16_t card_accent(uint8_t card) { return (card % 2 == 0) ? kCyan : kMagenta; }
+
+}  // namespace
+
 Display::Display()
     : tft_(config::kLcdCsPin, config::kLcdDcPin, config::kLcdRstPin) {}
 
@@ -31,13 +58,6 @@ void Display::clear() {
 }
 
 void Display::draw_splash() {
-  // Vaporwave RGB565 palette
-  constexpr uint16_t kMagenta = 0xF81F;
-  constexpr uint16_t kMagentaDim = 0x780F;
-  constexpr uint16_t kCyan = 0x07FF;
-  constexpr uint16_t kWhite = 0xFFFF;
-  constexpr uint16_t kShellFill = 0x1867;   // dark blue-purple
-  constexpr uint16_t kFaceFill = 0x0863;    // near-black indigo
   constexpr int16_t kHorizonY = 172;
 
   tft_.fillScreen(ST77XX_BLACK);
@@ -112,6 +132,54 @@ void Display::draw_splash() {
   };
   glitch_text("JARVIS", 4, (config::kLcdWidth - 6 * 24) / 2, 12, kCyan);
   glitch_text("MARK 85", 3, (config::kLcdWidth - 7 * 18) / 2, 244, kWhite);
+}
+
+void Display::begin_monitor_screen() {
+  tft_.fillScreen(ST77XX_BLACK);
+
+  // Glitch title: magenta ghost under cyan text, centered (16 chars, size 2)
+  const char* title = "MARK85 TELEMETRY";
+  const int16_t title_x = (config::kLcdWidth - 16 * 12) / 2;
+  tft_.setTextSize(2);
+  tft_.setTextColor(kMagenta);
+  tft_.setCursor(title_x + 1, 7);
+  tft_.print(title);
+  tft_.setTextColor(kCyan);
+  tft_.setCursor(title_x, 6);
+  tft_.print(title);
+  tft_.drawFastHLine(0, 26, config::kLcdWidth, kMagenta);
+
+  for (uint8_t card = 0; card < config::kImuCount; ++card) {
+    tft_.drawRoundRect(kCardX, card_top(card), kCardW, kCardH, 8,
+                       card_accent(card));
+  }
+}
+
+void Display::draw_card_header(uint8_t card, const char* text, bool online) {
+  if (card >= config::kImuCount) {
+    return;
+  }
+  // 17 columns of text, leaving the right edge for the status dot
+  char padded[18];
+  std::snprintf(padded, sizeof(padded), "%-17s", text);
+  tft_.setTextSize(2);
+  tft_.setTextColor(card_accent(card), ST77XX_BLACK);
+  tft_.setCursor(kCardTextX, card_top(card) + 6);
+  tft_.print(padded);
+  tft_.fillCircle(228, card_top(card) + 12, 4,
+                  online ? kCyan : kMagentaDim);
+}
+
+void Display::draw_card_value(uint8_t card, uint8_t line, const char* text) {
+  if (card >= config::kImuCount || line > 1) {
+    return;
+  }
+  char padded[kCardLineChars + 1];
+  std::snprintf(padded, sizeof(padded), "%-19s", text);
+  tft_.setTextSize(2);
+  tft_.setTextColor(kWhite, ST77XX_BLACK);
+  tft_.setCursor(kCardTextX, card_top(card) + 22 + line * 16);
+  tft_.print(padded);
 }
 
 void Display::draw_line(uint8_t row, const char* text) {

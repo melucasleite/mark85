@@ -29,6 +29,16 @@ class Display {
   // Clears to black and restores the monitor text style.
   void clear();
 
+  // Telemetry screen chrome, drawn once: title bar + one neon card frame
+  // per limb (cyan accents for left limbs, magenta for right).
+  void begin_monitor_screen();
+
+  // Card header text in the limb's accent color, plus a status dot.
+  void draw_card_header(uint8_t card, const char* text, bool online);
+
+  // One of the two white data lines inside a card (line 0 or 1).
+  void draw_card_value(uint8_t card, uint8_t line, const char* text);
+
  private:
   static constexpr uint8_t kTextSize = 2;
   static constexpr uint8_t kRowHeightPx = 16;
