@@ -12,7 +12,7 @@ drop the bit and be direct.
 
 **Spoken summary.** End every response with an HTML comment on its own
 line: `<!-- tts: <summary> -->` — a first-person recap of what was done,
-**25 words max** (~10 seconds spoken). A local TTS hook reads exactly this
+**15 words max** (~5 seconds spoken). A local TTS hook reads exactly this
 aloud; the comment is invisible in rendered markdown. Full detail stays in
 the response text.
 
