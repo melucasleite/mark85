@@ -18,6 +18,11 @@ constexpr uint16_t kFaceFill = 0x0863;   // near-black indigo
 
 constexpr uint16_t kCyanDim = 0x0339;
 
+// Splash layout
+constexpr int16_t kSplashHorizonY = 172;
+constexpr uint32_t kFloorScrollPeriodMs = 1400;
+constexpr uint8_t kFloorLineCount = 8;
+
 // Telemetry screen layout (y coordinates)
 constexpr int16_t kLimbTop = 34;      // 2x2 limb grid, 20 px row pitch
 constexpr int16_t kLimbPitch = 20;
@@ -64,8 +69,19 @@ void Display::clear() {
   tft_.setTextColor(ST77XX_GREEN, ST77XX_BLACK);
 }
 
-void Display::draw_splash() {
-  constexpr int16_t kHorizonY = 172;
+void Display::glitch_print(const char* s, uint8_t size, int16_t x, int16_t y,
+                           uint16_t color) {
+  tft_.setTextSize(size);
+  tft_.setTextColor(kMagenta);
+  tft_.setCursor(x + 2, y + 2);
+  tft_.print(s);
+  tft_.setTextColor(color);
+  tft_.setCursor(x, y);
+  tft_.print(s);
+}
+
+void Display::draw_splash(const char* version) {
+  constexpr int16_t kHorizonY = kSplashHorizonY;
 
   tft_.fillScreen(ST77XX_BLACK);
 
@@ -116,38 +132,53 @@ void Display::draw_splash() {
   tft_.drawFastHLine(0, kHorizonY - 1, config::kLcdWidth, kWhite);
   tft_.drawFastHLine(0, kHorizonY, config::kLcdWidth, kCyan);
 
-  // Perspective grid floor: rays from the vanishing point + horizontals
+  glitch_print("JARVIS", 4, (config::kLcdWidth - 6 * 24) / 2, 12, kCyan);
+
+  // Firmware version, top-left over the sky
+  tft_.setTextSize(1);
+  tft_.setTextColor(kCyan);
+  tft_.setCursor(4, 2);
+  tft_.print(version);
+
+  // The grid floor below the horizon (with its text overlays) is animated:
+  // drawn every frame by draw_splash_floor().
+  draw_splash_floor(0);
+}
+
+void Display::draw_splash_floor(uint32_t now_ms) {
+  constexpr int16_t kTop = kSplashHorizonY + 1;
+  constexpr int16_t kBottom = config::kLcdHeight - 1;
+  constexpr int16_t kDepth = kBottom - kTop;
+
+  tft_.fillRect(0, kTop, config::kLcdWidth, config::kLcdHeight - kTop,
+                ST77XX_BLACK);
+
+  // Rays from the vanishing point (static per frame)
   for (int16_t k = -5; k <= 5; ++k) {
-    tft_.drawLine(120, kHorizonY, 120 + k * 52, config::kLcdHeight - 1,
-                  kMagenta);
+    tft_.drawLine(120, kTop - 1, 120 + k * 52, kBottom, kMagenta);
   }
-  constexpr int16_t kGridRows[] = {176, 182, 190, 200, 213, 230, 251, 276};
-  for (const int16_t y : kGridRows) {
+
+  // Horizontals scrolling toward the viewer: each line's depth parameter t
+  // advances with time, and y grows with t^2 so lines accelerate as they
+  // approach — the classic vaporwave plane.
+  const float phase = static_cast<float>(now_ms % kFloorScrollPeriodMs) /
+                      kFloorScrollPeriodMs;
+  for (uint8_t i = 0; i < kFloorLineCount; ++i) {
+    float t = phase + static_cast<float>(i) / kFloorLineCount;
+    t -= static_cast<int>(t);  // wrap to [0, 1)
+    const int16_t y = kTop + static_cast<int16_t>(t * t * kDepth);
     tft_.drawFastHLine(0, y, config::kLcdWidth, kMagenta);
   }
 
-  // Chromatic-aberration titles: magenta ghost offset under cyan text
-  const auto glitch_text = [this](const char* s, uint8_t size, int16_t x,
-                                  int16_t y, uint16_t main_color) {
-    tft_.setTextSize(size);
-    tft_.setTextColor(kMagenta);
-    tft_.setCursor(x + 2, y + 2);
-    tft_.print(s);
-    tft_.setTextColor(main_color);
-    tft_.setCursor(x, y);
-    tft_.print(s);
-  };
-  glitch_text("JARVIS", 4, (config::kLcdWidth - 6 * 24) / 2, 12, kCyan);
-  glitch_text("MARK 85", 3, (config::kLcdWidth - 7 * 18) / 2, 244, kWhite);
+  // Text overlays live inside the animated region: redraw on top
+  glitch_print("MARK 85", 3, (config::kLcdWidth - 7 * 18) / 2, 244, kWhite);
 
   // Calibration status: the wearer must hold the neutral pose while the
   // splash is up (see pose_calibration). Size 1 = 6 px/char, 19 chars.
   const char* status = "CALIBRATING SENSORS";
-  const int16_t status_x = (config::kLcdWidth - 19 * 6) / 2;
-  tft_.fillRect(0, 270, config::kLcdWidth, 10, ST77XX_BLACK);
   tft_.setTextSize(1);
   tft_.setTextColor(kCyan);
-  tft_.setCursor(status_x, 271);
+  tft_.setCursor((config::kLcdWidth - 19 * 6) / 2, 271);
   tft_.print(status);
 }
 

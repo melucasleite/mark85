@@ -15,6 +15,7 @@
 #include "drivers/imu_array.h"
 #include "drivers/rgb_leds.h"
 #include "drivers/servos.h"
+#include "version.h"
 
 namespace {
 
@@ -101,11 +102,12 @@ void draw_telemetry(uint32_t now) {
 
 void setup() {
   Serial.begin(config::kSerialBaud);
+  Serial.printf("[fw] %s\n", kFirmwareVersion);
 
   const bool display_ok = display.begin();
   Serial.printf("[display] %s\n", display_ok ? "ok" : "FAILED");
 
-  display.draw_splash();
+  display.draw_splash(kFirmwareVersion);
   boot_ms = millis();
 
   const bool audio_left_ok = audio_left.begin();
@@ -152,9 +154,14 @@ void loop() {
   }
 
   if (in_splash) {
-    // Boot jingle plays over the splash while calibration collects samples.
+    // Boot jingle plays over the splash while calibration collects samples,
+    // and the grid floor scrolls toward the viewer.
     pump_audio(feed_left, audio_left, render_boot_left);
     pump_audio(feed_right, audio_right, render_boot_right);
+    if (now - last_led_ms >= config::kLedPeriodMs) {
+      last_led_ms = now;
+      display.draw_splash_floor(now);
+    }
     return;
   }
   if (!monitor_started) {
