@@ -23,7 +23,7 @@ Servos, RGB lighting, and a status display complete the suit hardware.
 | NS4168 I²S audio amp A (mono Class-D, 3 W)   | 1   | I²S0       | Left speaker — left arm/leg sounds             |
 | NS4168 I²S audio amp B (mono Class-D, 3 W)   | 1   | I²S1       | Right speaker — right arm/leg sounds           |
 | Speaker (4–8 Ω)                              | 2   | —          | One per amp                                    |
-| Hobby servo                                  | 4   | PWM (LEDC) | Powered from the fused 5 V rail                |
+| MG996R servo                                 | 4   | PWM (LEDC) | Powered from the fused 5 V rail                |
 | Waveshare 1.69" LCD, 240×280, ST7789V2       | 1   | SPI        | MOSI-only (no MISO needed)                     |
 | HW-159 addressable RGB LED (WS2812/NeoPixel) | 2   | RMT        | Two independent data buses, no daisy chain     |
 
@@ -67,9 +67,11 @@ and PWM all need it as their signal reference.
 
 - **F1 (5 A)** sits directly on the LiPo positive lead and protects the whole
   harness against any downstream short.
-- **F3 (4 A)** protects the servo rail: four servos at ~1 A stall each is the
-  worst case; a stalled/shorted servo blows F3 without dropping the logic
-  rails, so the suit brain stays alive.
+- **F3 (4 A)** protects the servo rail. An MG996R stalls at ~2.5 A, so one
+  jammed servo rides under the fuse while two jamming simultaneously blow it
+  — by design: F3 goes before the wiring does, and the logic rails stay up,
+  so the suit brain stays alive. In firmware, servos run at moderate speeds
+  and never drive into their end-stops (600–2400 µs pulse range).
 - **F2 (1 A)** protects the 3.3 V rail: all peripherals together draw well
   under 500 mA, so 1 A gives headroom while still catching a miswired module
   (as this project has learned, that happens).

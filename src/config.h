@@ -50,8 +50,10 @@ inline constexpr uint8_t kServoLedcChannels[kServoCount] = {0, 1, 2, 3};
 inline constexpr uint32_t kServoPwmHz = 50;
 inline constexpr uint8_t kServoPwmResolutionBits = 14;
 inline constexpr uint32_t kServoPeriodUs = 20000;  // 1 / 50 Hz
-inline constexpr uint32_t kServoMinPulseUs = 500;   // 0 degrees
-inline constexpr uint32_t kServoMaxPulseUs = 2500;  // 180 degrees
+// MG996R: stay inside 600-2400 us — many units bind at their mechanical
+// end-stops on the full 500-2500 range and stall-current spike.
+inline constexpr uint32_t kServoMinPulseUs = 600;   // 0 degrees
+inline constexpr uint32_t kServoMaxPulseUs = 2400;  // 180 degrees
 
 // --- Addressable RGB (HW-159, 7-pixel jewel: index 0 center, 1-6 ring) ---
 inline constexpr uint8_t kRgbLeftPin = 9;    // D6
