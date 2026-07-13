@@ -34,6 +34,14 @@ static void test_magnitude_converts_lsb_to_dps() {
   TEST_ASSERT_TRUE(std::fabs(sample_magnitude_dps(s) - 10.0f) < 0.01f);
 }
 
+static void test_magnitude_combines_three_axes() {
+  // 60 dps on each axis -> 60*sqrt(3) ~= 103.92 dps. Exercises the full
+  // Euclidean sum, not just a single-axis shortcut.
+  const ImuSample s = gyro_sample(7860, 7860, 7860);  // 60 dps per axis
+  TEST_ASSERT_TRUE(std::fabs(sample_magnitude_dps(s) - 60.0f * std::sqrt(3.0f)) <
+                   0.05f);
+}
+
 static void test_pair_takes_busier_limb() {
   const ImuSample slow = gyro_sample(1310, 0, 0);    // 10 dps
   const ImuSample fast = gyro_sample(13100, 0, 0);   // 100 dps
@@ -71,6 +79,7 @@ int main(int argc, char** argv) {
   UNITY_BEGIN();
   RUN_TEST(test_invalid_sample_has_zero_magnitude);
   RUN_TEST(test_magnitude_converts_lsb_to_dps);
+  RUN_TEST(test_magnitude_combines_three_axes);
   RUN_TEST(test_pair_takes_busier_limb);
   RUN_TEST(test_intensity_saturates_at_one);
   RUN_TEST(test_attack_faster_than_release);

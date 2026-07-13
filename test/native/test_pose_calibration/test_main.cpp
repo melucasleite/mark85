@@ -59,6 +59,37 @@ static void test_movement_during_window_is_invalid() {
   TEST_ASSERT_FALSE(finalize(cal).valid);
 }
 
+static void test_weak_magnitude_is_invalid() {
+  // Still and directional, but only ~0.5 g: the accel is on the wrong full
+  // scale or half-dead. Spread is zero, so this isolates the magnitude gate.
+  Calibrator cal;
+  for (int i = 0; i < 60; ++i) {
+    feed(cal, accel(8192, 0, 0));  // 0.5 g, below kMinMeanG
+  }
+  TEST_ASSERT_FALSE(finalize(cal).valid);
+}
+
+static void test_excessive_magnitude_is_invalid() {
+  // Still and directional at ~1.5 g: above kMaxMeanG. Again spread is zero,
+  // so only the magnitude ceiling can reject it.
+  Calibrator cal;
+  for (int i = 0; i < 60; ++i) {
+    feed(cal, accel(24576, 0, 0));  // 1.5 g, above kMaxMeanG
+  }
+  TEST_ASSERT_FALSE(finalize(cal).valid);
+}
+
+static void test_down_dot_near_freefall_reads_as_lowered() {
+  Calibrator cal;
+  for (int i = 0; i < 60; ++i) {
+    feed(cal, accel(16384, 0, 0));
+  }
+  const Reference ref = finalize(cal);
+  TEST_ASSERT_TRUE(ref.valid);
+  // ~0.06 g: below kMinUsableG, direction is meaningless -> safe "lowered".
+  TEST_ASSERT_TRUE(down_dot(ref, accel(-1000, 0, 0)) == 1.0f);
+}
+
 static void test_wandering_direction_is_invalid() {
   Calibrator cal;
   for (int i = 0; i < 60; ++i) {
@@ -109,6 +140,9 @@ int main(int argc, char** argv) {
   UNITY_BEGIN();
   RUN_TEST(test_still_diagonal_mount_calibrates);
   RUN_TEST(test_too_few_samples_is_invalid);
+  RUN_TEST(test_weak_magnitude_is_invalid);
+  RUN_TEST(test_excessive_magnitude_is_invalid);
+  RUN_TEST(test_down_dot_near_freefall_reads_as_lowered);
   RUN_TEST(test_movement_during_window_is_invalid);
   RUN_TEST(test_wandering_direction_is_invalid);
   RUN_TEST(test_invalid_samples_are_skipped);
