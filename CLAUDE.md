@@ -81,6 +81,30 @@ test/
   init (`[imu] ok`, `[audio] FAILED`, ...). Keep per-loop logging behind a
   compile-time flag so it can't starve the loop.
 
+## Display design (LCD panel)
+
+Every screen follows the suit's **vaporwave/cyberpunk** design language:
+
+- **Palette.** Neon on dark, RGB565, defined once in `drivers/display.cpp`
+  and reused — magenta `0xF81F` (+dim `0x780F`), cyan `0x07FF`, white for
+  data text, dark purple/indigo fills (`0x1867`, `0x0863`), black background.
+  No new colors without adding them to the shared palette.
+- **Accent semantics.** Cyan = left limbs, magenta = right limbs, mirroring
+  the left/right speaker split. Status: bright dot = online, dim = offline.
+- **Typography.** Titles get the glitch treatment: magenta ghost offset
+  +1/+2 px under the main text (chromatic aberration). Data lines are plain
+  white, fixed-width, monospace-aligned.
+- **Art is procedural.** Graphics are GFX primitives (rects, circles, lines),
+  no bitmap assets. Signature motifs: perspective grid floor, slit vaporwave
+  sun, neon outline silhouettes, horizon glow line.
+- **Render discipline.** Static chrome (frames, titles, separators) is drawn
+  once on screen entry; only dynamic values redraw in the loop, in place,
+  using padded fixed-width text with a background color so old content is
+  overwritten without flicker. Never `fillScreen()` inside the loop.
+- **Layout.** 240x280 portrait. Text size 2 (12 px/char, 20 cols) for data;
+  bounded layouts — every dynamic string is length-checked in a host test so
+  it can't overflow its slot (see `test_lines_never_exceed_display_width`).
+
 ## Testing
 
 Test as much as possible on the host, before anything is flashed. Two tiers,
