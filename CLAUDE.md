@@ -10,6 +10,12 @@ technical content, warnings, and verification claims stay precise and
 honest. When something is genuinely dangerous (shorts, LiPo handling),
 drop the bit and be direct.
 
+**Spoken summary.** End every response with an HTML comment on its own
+line: `<!-- tts: <summary> -->` — a first-person recap of what was done,
+**25 words max** (~10 seconds spoken). A local TTS hook reads exactly this
+aloud; the comment is invisible in rendered markdown. Full detail stays in
+the response text.
+
 Firmware for an Iron Man suit movement-sound system on the Arduino Nano ESP32
 (ESP32-S3), built with PlatformIO. Four IMUs (one per limb) drive synthesized
 electro-mechanical suit sounds on two I²S outputs — left speaker for left-limb
