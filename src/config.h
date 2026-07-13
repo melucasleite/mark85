@@ -43,6 +43,16 @@ inline constexpr uint8_t kAudioRightDoutPin = 14;   // A7
 inline constexpr uint32_t kAudioSampleRateHz = 22050;
 inline constexpr size_t kAudioChunkSamples = 128;
 
+// --- Servos (LEDC PWM, 50 Hz) ---
+inline constexpr uint8_t kServoCount = 4;
+inline constexpr uint8_t kServoPins[kServoCount] = {5, 6, 7, 8};  // D2-D5
+inline constexpr uint8_t kServoLedcChannels[kServoCount] = {0, 1, 2, 3};
+inline constexpr uint32_t kServoPwmHz = 50;
+inline constexpr uint8_t kServoPwmResolutionBits = 14;
+inline constexpr uint32_t kServoPeriodUs = 20000;  // 1 / 50 Hz
+inline constexpr uint32_t kServoMinPulseUs = 500;   // 0 degrees
+inline constexpr uint32_t kServoMaxPulseUs = 2500;  // 180 degrees
+
 // --- Addressable RGB (HW-159, 7-pixel jewel: index 0 center, 1-6 ring) ---
 inline constexpr uint8_t kRgbLeftPin = 9;    // D6
 inline constexpr uint8_t kRgbRightPin = 47;  // D12
@@ -52,6 +62,7 @@ inline constexpr uint8_t kRgbLedCount = 7;
 inline constexpr uint32_t kImuSamplePeriodMs = 20;  // 50 Hz sensor reads
 inline constexpr uint32_t kDisplayPeriodMs = 100;   // 10 Hz screen refresh
 inline constexpr uint32_t kLedPeriodMs = 33;        // ~30 Hz LED animation
+inline constexpr uint32_t kServoUpdatePeriodMs = 20;  // 50 Hz angle updates
 
 // --- Serial ---
 inline constexpr uint32_t kSerialBaud = 115200;
