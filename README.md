@@ -9,41 +9,101 @@ Servos, RGB lighting, and a status display complete the suit hardware.
 
 ## Hardware
 
-| Component                                     | Qty | Interface  | Notes                                          |
-| --------------------------------------------- | --- | ---------- | ---------------------------------------------- |
-| Arduino Nano ESP32 (ESP32-S3)                 | 1   | —          | 3.3 V logic on all GPIOs                       |
-| MPU-6050 IMU (GY-521 style)                   | 4   | I²C @ 0x68 | One per limb: L/R arm, L/R leg, behind the mux |
-| HW-617 I²C multiplexer (PCA9548A/TCA9548A)    | 1   | I²C @ 0x70 | 8 channels; we use 0–3                         |
-| I²S audio output A (e.g. MAX98357A amp / DAC) | 1   | I²S0       | Left speaker — left arm/leg sounds             |
-| I²S audio output B (e.g. MAX98357A amp / DAC) | 1   | I²S1       | Right speaker — right arm/leg sounds           |
-| Hobby servo                                   | 4   | PWM (LEDC) | External 5 V supply required                   |
-| Waveshare 1.69" LCD, 240×280, ST7789V2        | 1   | SPI        | MOSI-only (no MISO needed)                     |
-| HW-159 addressable RGB LED (WS2812/NeoPixel)  | 2   | RMT        | Two independent data buses, no daisy chain     |
+| Component                                    | Qty | Interface  | Notes                                          |
+| -------------------------------------------- | --- | ---------- | ---------------------------------------------- |
+| Arduino Nano ESP32 (ESP32-S3)                | 1   | —          | 3.3 V logic on all GPIOs; powered via VIN      |
+| LiPo 2S battery (7.4 V nominal)              | 1   | —          | Main power input                               |
+| Buck converter, 7.4 V → 3.3 V                | 1   | —          | Peripheral rail (mux, IMUs, LCD, amps, RGB)    |
+| Buck converter, 7.4 V → 5 V                  | 1   | —          | Servo rail only                                |
+| Inline fuse F1 (5 A)                         | 1   | —          | Battery master fuse                            |
+| Inline fuse F2 (1 A)                         | 1   | —          | 3.3 V rail output                              |
+| Inline fuse F3 (4 A)                         | 1   | —          | 5 V servo rail output                          |
+| MPU-6050 IMU (GY-521 style)                  | 4   | I²C @ 0x68 | One per limb: L/R arm, L/R leg, behind the mux |
+| HW-617 I²C multiplexer (PCA9548A/TCA9548A)   | 1   | I²C @ 0x70 | 8 channels; we use 0–3                         |
+| I²S audio amp A (e.g. MAX98357A)             | 1   | I²S0       | Left speaker — left arm/leg sounds             |
+| I²S audio amp B (e.g. MAX98357A)             | 1   | I²S1       | Right speaker — right arm/leg sounds           |
+| Speaker (4–8 Ω)                              | 2   | —          | One per amp                                    |
+| Hobby servo                                  | 4   | PWM (LEDC) | Powered from the fused 5 V rail                |
+| Waveshare 1.69" LCD, 240×280, ST7789V2       | 1   | SPI        | MOSI-only (no MISO needed)                     |
+| HW-159 addressable RGB LED (WS2812/NeoPixel) | 2   | RMT        | Two independent data buses, no daisy chain     |
 
-## Pin assignments
+## Power distribution
 
-| Nano pin | ESP32-S3 GPIO | Function      | Goes to        |
-| -------- | ------------- | ------------- | -------------- |
-| A4       | GPIO11        | I²C SDA       | HW-617 SDA     |
-| A5       | GPIO12        | I²C SCL       | HW-617 SCL     |
-| D11      | GPIO38        | SPI MOSI      | LCD DIN        |
-| D13      | GPIO48        | SPI SCK       | LCD CLK        |
-| D10      | GPIO21        | LCD CS        | LCD CS         |
-| D9       | GPIO18        | LCD DC        | LCD DC         |
-| D8       | GPIO17        | LCD RST       | LCD RST        |
-| D7       | GPIO10        | LCD backlight | LCD BL         |
-| A0       | GPIO1         | I²S0 BCLK     | Audio A BCLK   |
-| A1       | GPIO2         | I²S0 LRCLK/WS | Audio A LRC/WS |
-| A2       | GPIO3         | I²S0 DOUT     | Audio A DIN    |
-| A3       | GPIO4         | I²S1 BCLK     | Audio B BCLK   |
-| A6       | GPIO13        | I²S1 LRCLK/WS | Audio B LRC/WS |
-| A7       | GPIO14        | I²S1 DOUT     | Audio B DIN    |
-| D2       | GPIO5         | Servo 1 PWM   | Servo 1 signal |
-| D3       | GPIO6         | Servo 2 PWM   | Servo 2 signal |
-| D4       | GPIO7         | Servo 3 PWM   | Servo 3 signal |
-| D5       | GPIO8         | Servo 4 PWM   | Servo 4 signal |
-| D6       | GPIO9         | RGB data 1    | HW-159 #1 DIN  |
-| D12      | GPIO47        | RGB data 2    | HW-159 #2 DIN  |
+```mermaid
+graph TD
+    LIPO["LiPo 2S<br/>7.4 V nominal"] --> F1["F1 — 5 A<br/>master fuse"]
+
+    F1 --> NANO_VIN["Nano ESP32 VIN<br/>(accepts 6–21 V)"]
+    F1 --> BUCK5["Buck converter<br/>7.4 V → 5 V"]
+    F1 --> BUCK33["Buck converter<br/>7.4 V → 3.3 V"]
+
+    BUCK5 --> F3["F3 — 4 A"]
+    F3 --> SRV_RAIL["5 V servo rail"]
+    SRV_RAIL --> S1V["Servo 1 (+)"]
+    SRV_RAIL --> S2V["Servo 2 (+)"]
+    SRV_RAIL --> S3V["Servo 3 (+)"]
+    SRV_RAIL --> S4V["Servo 4 (+)"]
+
+    BUCK33 --> F2["F2 — 1 A"]
+    F2 --> RAIL33["3.3 V peripheral rail"]
+    RAIL33 --> MUXV["HW-617 VIN"]
+    RAIL33 --> IMU0V["IMU L-ARM VCC"]
+    RAIL33 --> IMU1V["IMU R-ARM VCC"]
+    RAIL33 --> IMU2V["IMU L-LEG VCC"]
+    RAIL33 --> IMU3V["IMU R-LEG VCC"]
+    RAIL33 --> LCDV["LCD VCC"]
+    RAIL33 --> AMPAV["Amp A VIN"]
+    RAIL33 --> AMPBV["Amp B VIN"]
+    RAIL33 --> RGB1V["RGB #1 VCC"]
+    RAIL33 --> RGB2V["RGB #2 VCC"]
+```
+
+**Ground:** every module's GND pin — Nano, both bucks, mux, all four IMUs,
+LCD, both amps, all four servos, both RGB modules — returns to a **single
+common ground** at the battery/buck negative. No exceptions; I²C, SPI, I²S,
+and PWM all need it as their signal reference.
+
+**Fuse rationale:**
+
+- **F1 (5 A)** sits directly on the LiPo positive lead and protects the whole
+  harness against any downstream short.
+- **F3 (4 A)** protects the servo rail: four servos at ~1 A stall each is the
+  worst case; a stalled/shorted servo blows F3 without dropping the logic
+  rails, so the suit brain stays alive.
+- **F2 (1 A)** protects the 3.3 V rail: all peripherals together draw well
+  under 500 mA, so 1 A gives headroom while still catching a miswired module
+  (as this project has learned, that happens).
+
+**Flashing note:** USB can stay connected while the LiPo is attached — the
+Nano ESP32 handles VIN and USB power simultaneously. Never tie the 5 V buck
+output to the Nano's VBUS pin.
+
+## Pin assignments (Nano ESP32)
+
+| Nano pin | ESP32-S3 GPIO | Function      | Goes to           |
+| -------- | ------------- | ------------- | ----------------- |
+| A4       | GPIO11        | I²C SDA       | HW-617 SDA        |
+| A5       | GPIO12        | I²C SCL       | HW-617 SCL        |
+| D11      | GPIO38        | SPI MOSI      | LCD DIN           |
+| D13      | GPIO48        | SPI SCK       | LCD CLK           |
+| D10      | GPIO21        | LCD CS        | LCD CS            |
+| D9       | GPIO18        | LCD DC        | LCD DC            |
+| D8       | GPIO17        | LCD RST       | LCD RST           |
+| D7       | GPIO10        | LCD backlight | LCD BL            |
+| A0       | GPIO1         | I²S0 BCLK     | Amp A BCLK        |
+| A1       | GPIO2         | I²S0 LRCLK/WS | Amp A LRC         |
+| A2       | GPIO3         | I²S0 DOUT     | Amp A DIN         |
+| A3       | GPIO4         | I²S1 BCLK     | Amp B BCLK        |
+| A6       | GPIO13        | I²S1 LRCLK/WS | Amp B LRC         |
+| A7       | GPIO14        | I²S1 DOUT     | Amp B DIN         |
+| D2       | GPIO5         | Servo 1 PWM   | Servo 1 signal    |
+| D3       | GPIO6         | Servo 2 PWM   | Servo 2 signal    |
+| D4       | GPIO7         | Servo 3 PWM   | Servo 3 signal    |
+| D5       | GPIO8         | Servo 4 PWM   | Servo 4 signal    |
+| D6       | GPIO9         | RGB data 1    | HW-159 #1 DIN     |
+| D12      | GPIO47        | RGB data 2    | HW-159 #2 DIN     |
+| VIN      | —             | Board power   | F1 (fused LiPo +) |
+| GND      | —             | Ground        | Common ground     |
 
 Free for future use: `D0/RX`, `D1/TX`.
 
@@ -51,7 +111,84 @@ Free for future use: `D0/RX`, `D1/TX`.
 > is wired, the classic blink-on-13 sketch conflicts with SPI SCK — use the
 > onboard RGB LED for status instead.
 
-## Wiring diagram
+## Module-by-module wiring
+
+Every pin of every module. Rail names refer to the power diagram above.
+
+### HW-617 I²C multiplexer
+
+| Mux pin    | Connects to           |
+| ---------- | --------------------- |
+| VIN        | 3.3 V rail (after F2) |
+| GND        | Common ground         |
+| SDA        | Nano A4               |
+| SCL        | Nano A5               |
+| A0, A1, A2 | GND (address 0x70)    |
+| SD0 / SC0  | IMU L-ARM SDA / SCL   |
+| SD1 / SC1  | IMU R-ARM SDA / SCL   |
+| SD2 / SC2  | IMU L-LEG SDA / SCL   |
+| SD3 / SC3  | IMU R-LEG SDA / SCL   |
+| SD4–SD7    | Unused                |
+
+### MPU-6050 IMUs (one per limb)
+
+> ⚠️ The GY-521 header order is **VCC, GND, SCL, SDA** — SCL comes _before_
+> SDA. Crossed bus wires scan as an empty bus (ask us how we know).
+
+| IMU pin         | L-ARM      | R-ARM      | L-LEG      | R-LEG      |
+| --------------- | ---------- | ---------- | ---------- | ---------- |
+| VCC             | 3.3 V rail | 3.3 V rail | 3.3 V rail | 3.3 V rail |
+| GND             | Common GND | Common GND | Common GND | Common GND |
+| SCL             | Mux SC0    | Mux SC1    | Mux SC2    | Mux SC3    |
+| SDA             | Mux SD0    | Mux SD1    | Mux SD2    | Mux SD3    |
+| XDA/XCL/AD0/INT | Unused     | Unused     | Unused     | Unused     |
+
+### Waveshare 1.69" LCD (ST7789V2)
+
+| LCD pin | Connects to           |
+| ------- | --------------------- |
+| VCC     | 3.3 V rail (after F2) |
+| GND     | Common ground         |
+| DIN     | Nano D11 (MOSI)       |
+| CLK     | Nano D13 (SCK)        |
+| CS      | Nano D10              |
+| DC      | Nano D9               |
+| RST     | Nano D8               |
+| BL      | Nano D7               |
+
+### I²S audio amps (MAX98357A)
+
+| Amp pin       | Amp A (left)       | Amp B (right)      |
+| ------------- | ------------------ | ------------------ |
+| VIN           | 3.3 V rail         | 3.3 V rail         |
+| GND           | Common ground      | Common ground      |
+| BCLK          | Nano A0            | Nano A3            |
+| LRC           | Nano A1            | Nano A6            |
+| DIN           | Nano A2            | Nano A7            |
+| GAIN          | Unconnected (9 dB) | Unconnected (9 dB) |
+| SD            | Unconnected        | Unconnected        |
+| Speaker + / − | Left speaker       | Right speaker      |
+
+### Servos
+
+| Servo pin       | Servo 1                   | Servo 2 | Servo 3 | Servo 4 |
+| --------------- | ------------------------- | ------- | ------- | ------- |
+| Signal (orange) | Nano D2                   | Nano D3 | Nano D4 | Nano D5 |
+| V+ (red)        | 5 V servo rail (after F3) | same    | same    | same    |
+| GND (brown)     | Common ground             | same    | same    | same    |
+
+### HW-159 RGB modules (WS2812)
+
+| RGB pin | RGB #1     | RGB #2     |
+| ------- | ---------- | ---------- |
+| VCC     | 3.3 V rail | 3.3 V rail |
+| GND     | Common GND | Common GND |
+| DIN     | Nano D6    | Nano D12   |
+
+## Signal wiring diagram
+
+Power edges are omitted here for readability — see the power diagram and the
+per-module tables above for every VCC/GND connection.
 
 ```mermaid
 graph LR
@@ -72,8 +209,8 @@ graph LR
 
     SPI --> LCD["Waveshare 1.69&quot;<br/>ST7789V2 240×280"]
 
-    I2S0 --> AUDA["Left speaker<br/>left-limb sounds"]
-    I2S1 --> AUDB["Right speaker<br/>right-limb sounds"]
+    I2S0 --> AMPA["Amp A (MAX98357A)"] --> SPKL["Left speaker<br/>left-limb sounds"]
+    I2S1 --> AMPB["Amp B (MAX98357A)"] --> SPKR["Right speaker<br/>right-limb sounds"]
 
     PWM --> S1["Servo 1"]
     PWM --> S2["Servo 2"]
@@ -82,27 +219,7 @@ graph LR
 
     RMT -- "D6" --> RGB1["HW-159 RGB #1<br/>WS2812"]
     RMT -- "D12" --> RGB2["HW-159 RGB #2<br/>WS2812"]
-
-    PSU["External 5 V supply"] -.->|"5 V"| S1 & S2 & S3 & S4
-    PSU -.->|"GND common with Nano"| NANO
 ```
-
-### Power
-
-- **3V3 rail** (from the Nano): HW-617, all four MPU-6050s, the LCD, and the
-  I²S boards. Combined draw is well under 100 mA — fine from the onboard
-  regulator.
-- **Servos**: power from an **external 5 V supply** (budget ~1 A stall current
-  per servo). Never feed them from the Nano's 3V3/5V pins. Tie the supply
-  ground to the Nano's GND. The 3.3 V PWM signal is accepted by standard
-  hobby servos.
-- **HW-159 RGB modules**: power them from the **3V3 rail**, not 5 V. A WS2812
-  needs a data-high level of ≥ 0.7 × VDD; at 5 V supply that's 3.5 V, which the
-  S3's 3.3 V GPIO can't guarantee. At a 3.3 V supply the modules run slightly
-  dimmer but the data levels are always valid — no level shifter needed. If
-  you later want them at full 5 V brightness, add a level shifter (e.g.
-  74AHCT125) on each data line.
-- All I²C/SPI/I²S devices are 3.3 V — no level shifting needed anywhere.
 
 ## Feasibility notes
 
@@ -122,13 +239,16 @@ graph LR
 - **2× HW-159 (WS2812)**: driven by the S3's RMT peripheral, which has 4 TX
   channels — two independent buses are no problem and don't touch LEDC or I²S
   resources. Adafruit_NeoPixel and FastLED both handle multiple instances on
-  separate pins out of the box.
+  separate pins out of the box. Powered at 3.3 V so the 3.3 V data signal
+  stays in spec (a 5 V supply would need a level shifter on each data line).
 - **Pin budget**: 20 of ~22 usable GPIOs are assigned; only the UART pair
-  (`D0/D1`) remains free — the board is now effectively full.
+  (`D0/D1`) remains free — the board is effectively full.
 
 ## Build & flash
 
 ```sh
-pio run              # build
-pio run -t upload    # flash over USB (DFU)
+pio run                            # build firmware
+pio run -t upload                  # flash over USB (DFU)
+pio test -e native                 # host unit tests
+pio test -e arduino_nano_esp32     # on-target smoke tests (board attached)
 ```
