@@ -16,20 +16,27 @@ constexpr uint16_t kWhite = 0xFFFF;
 constexpr uint16_t kShellFill = 0x1867;  // dark blue-purple
 constexpr uint16_t kFaceFill = 0x0863;   // near-black indigo
 
-// Telemetry screen layout: title bar + 4 limb cards
-constexpr int16_t kCardX = 2;
-constexpr int16_t kCardW = 236;
-constexpr int16_t kCardH = 58;
-constexpr int16_t kCardPitch = 62;
-constexpr int16_t kCardsTop = 32;
-constexpr int16_t kCardTextX = 6;
-constexpr size_t kCardLineChars = 19;
+constexpr uint16_t kCyanDim = 0x0339;
 
-int16_t card_top(uint8_t card) { return kCardsTop + card * kCardPitch; }
+// Telemetry screen layout (y coordinates)
+constexpr int16_t kLimbTop = 34;      // 2x2 limb grid, 20 px row pitch
+constexpr int16_t kLimbPitch = 20;
+constexpr int16_t kSep1Y = 76;
+constexpr int16_t kMeterTop = 82;     // 4 bar meters, 22 px pitch
+constexpr int16_t kMeterPitch = 22;
+constexpr int16_t kMeterBarX = 70;
+constexpr int16_t kMeterBarW = 164;
+constexpr int16_t kMeterBarH = 12;
+constexpr int16_t kSep2Y = 168;
+constexpr int16_t kCalY = 174;
+constexpr int16_t kFlapY = 194;
+constexpr int16_t kSysY = 214;
+constexpr int16_t kUptimeY = 234;
+constexpr int16_t kFooterY = 254;     // mini grid-floor deco
 
-// Left limbs (cards 0, 2) are cyan; right limbs (1, 3) magenta —
-// mirroring the left/right speaker split.
-uint16_t card_accent(uint8_t card) { return (card % 2 == 0) ? kCyan : kMagenta; }
+// Left limbs/meters are cyan; right are magenta — mirroring the speakers.
+uint16_t side_accent(bool left) { return left ? kCyan : kMagenta; }
+uint16_t side_accent_dim(bool left) { return left ? kCyanDim : kMagentaDim; }
 
 }  // namespace
 
@@ -159,36 +166,119 @@ void Display::begin_monitor_screen() {
   tft_.print(title);
   tft_.drawFastHLine(0, 26, config::kLcdWidth, kMagenta);
 
-  for (uint8_t card = 0; card < config::kImuCount; ++card) {
-    tft_.drawRoundRect(kCardX, card_top(card), kCardW, kCardH, 8,
-                       card_accent(card));
-  }
-}
-
-void Display::draw_card_header(uint8_t card, const char* text, bool online) {
-  if (card >= config::kImuCount) {
-    return;
-  }
-  // 17 columns of text, leaving the right edge for the status dot
-  char padded[18];
-  std::snprintf(padded, sizeof(padded), "%-17s", text);
   tft_.setTextSize(2);
-  tft_.setTextColor(card_accent(card), ST77XX_BLACK);
-  tft_.setCursor(kCardTextX, card_top(card) + 6);
-  tft_.print(padded);
-  tft_.fillCircle(228, card_top(card) + 12, 4,
-                  online ? kCyan : kMagentaDim);
+  // Limb names, 2x2 grid (dots drawn dynamically next to them)
+  const char* limbs[4] = {"L-ARM", "R-ARM", "L-LEG", "R-LEG"};
+  for (uint8_t i = 0; i < 4; ++i) {
+    const bool left = (i % 2) == 0;
+    tft_.setTextColor(side_accent(left), ST77XX_BLACK);
+    tft_.setCursor(left ? 6 : 126, kLimbTop + (i / 2) * kLimbPitch);
+    tft_.print(limbs[i]);
+  }
+
+  tft_.drawFastHLine(0, kSep1Y, config::kLcdWidth, kMagentaDim);
+
+  // Meter labels + outlines
+  const char* meters[4] = {"MOV L", "MOV R", "CHG L", "CHG R"};
+  for (uint8_t s = 0; s < 4; ++s) {
+    const bool left = (s % 2) == 0;
+    const int16_t y = kMeterTop + s * kMeterPitch;
+    tft_.setTextColor(side_accent(left), ST77XX_BLACK);
+    tft_.setCursor(6, y);
+    tft_.print(meters[s]);
+    tft_.drawRect(kMeterBarX - 1, y, kMeterBarW + 2, kMeterBarH + 2,
+                  side_accent_dim(left));
+  }
+
+  tft_.drawFastHLine(0, kSep2Y, config::kLcdWidth, kMagentaDim);
+
+  // Calibration labels (dots drawn dynamically)
+  tft_.setTextColor(kWhite, ST77XX_BLACK);
+  tft_.setCursor(6, kCalY);
+  tft_.print("CAL");
+  tft_.setTextColor(kCyan, ST77XX_BLACK);
+  tft_.setCursor(66, kCalY);
+  tft_.print("L");
+  tft_.setTextColor(kMagenta, ST77XX_BLACK);
+  tft_.setCursor(126, kCalY);
+  tft_.print("R");
+
+  // System labels (dots drawn dynamically)
+  const char* systems[4] = {"MUX", "AUD", "RGB", "SRV"};
+  tft_.setTextColor(kWhite, ST77XX_BLACK);
+  for (uint8_t s = 0; s < 4; ++s) {
+    tft_.setCursor(6 + s * 60, kSysY);
+    tft_.print(systems[s]);
+  }
+
+  // Grid-floor footer: horizon glow + receding magenta lines
+  tft_.drawFastHLine(0, kFooterY - 1, config::kLcdWidth, kWhite);
+  tft_.drawFastHLine(0, kFooterY, config::kLcdWidth, kCyan);
+  for (int16_t k = -5; k <= 5; ++k) {
+    tft_.drawLine(120, kFooterY, 120 + k * 52, config::kLcdHeight - 1,
+                  kMagenta);
+  }
+  tft_.drawFastHLine(0, kFooterY + 6, config::kLcdWidth, kMagenta);
+  tft_.drawFastHLine(0, kFooterY + 14, config::kLcdWidth, kMagenta);
+  tft_.drawFastHLine(0, kFooterY + 24, config::kLcdWidth, kMagenta);
 }
 
-void Display::draw_card_value(uint8_t card, uint8_t line, const char* text) {
-  if (card >= config::kImuCount || line > 1) {
+void Display::draw_limb_status(uint8_t limb, bool online) {
+  if (limb >= 4) {
     return;
   }
-  char padded[kCardLineChars + 1];
+  const bool left = (limb % 2) == 0;
+  const int16_t cx = (left ? 6 : 126) + 5 * 12 + 12;  // after the name
+  const int16_t cy = kLimbTop + (limb / 2) * kLimbPitch + 6;
+  tft_.fillCircle(cx, cy, 5,
+                  online ? side_accent(left) : side_accent_dim(left));
+}
+
+void Display::draw_meter(uint8_t slot, float fraction) {
+  if (slot >= 4) {
+    return;
+  }
+  if (fraction < 0.0f) fraction = 0.0f;
+  if (fraction > 1.0f) fraction = 1.0f;
+  const bool left = (slot % 2) == 0;
+  const int16_t y = kMeterTop + slot * kMeterPitch + 1;
+  const int16_t fill_w = static_cast<int16_t>(fraction * kMeterBarW);
+  tft_.fillRect(kMeterBarX, y, fill_w, kMeterBarH, side_accent(left));
+  tft_.fillRect(kMeterBarX + fill_w, y, kMeterBarW - fill_w, kMeterBarH,
+                ST77XX_BLACK);
+}
+
+void Display::draw_cal_status(bool left_ok, bool right_ok) {
+  tft_.fillCircle(66 + 12 + 12, kCalY + 6, 5, left_ok ? kCyan : kCyanDim);
+  tft_.fillCircle(126 + 12 + 12, kCalY + 6, 5,
+                  right_ok ? kMagenta : kMagentaDim);
+}
+
+void Display::draw_system_status(bool mux, bool audio, bool rgb,
+                                 bool servos) {
+  const bool ok[4] = {mux, audio, rgb, servos};
+  for (uint8_t s = 0; s < 4; ++s) {
+    tft_.fillCircle(6 + s * 60 + 3 * 12 + 8, kSysY + 6, 4,
+                    ok[s] ? kWhite : kMagentaDim);
+  }
+}
+
+void Display::draw_flap_line(const char* text) {
+  // 19 columns: the row starts at x=6, so 20 would overflow the panel.
+  char padded[20];
   std::snprintf(padded, sizeof(padded), "%-19s", text);
   tft_.setTextSize(2);
   tft_.setTextColor(kWhite, ST77XX_BLACK);
-  tft_.setCursor(kCardTextX, card_top(card) + 22 + line * 16);
+  tft_.setCursor(6, kFlapY);
+  tft_.print(padded);
+}
+
+void Display::draw_uptime_line(const char* text) {
+  char padded[20];
+  std::snprintf(padded, sizeof(padded), "%-19s", text);
+  tft_.setTextSize(2);
+  tft_.setTextColor(kWhite, ST77XX_BLACK);
+  tft_.setCursor(6, kUptimeY);
   tft_.print(padded);
 }
 

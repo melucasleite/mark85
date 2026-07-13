@@ -9,6 +9,7 @@
 #include "domains/pose_calibration.h"
 #include "domains/servo_sweep.h"
 #include "domains/suit_sound.h"
+#include "domains/telemetry_view.h"
 #include "drivers/audio_out.h"
 #include "drivers/display.h"
 #include "drivers/imu_array.h"
@@ -33,6 +34,12 @@ boot_sound::State boot_jingle_left, boot_jingle_right;
 pose_calibration::Calibrator calibrators[config::kImuCount];
 uint32_t boot_ms = 0;
 bool monitor_started = false;
+// Boot-time subsystem health, shown on the telemetry screen.
+bool sys_mux_ok = false;
+bool sys_audio_ok = false;
+bool sys_rgb_ok = false;
+bool sys_servos_ok = false;
+float servo_angle_deg = 0.0f;
 uint32_t last_sample_ms = 0;
 uint32_t last_draw_ms = 0;
 uint32_t last_led_ms = 0;
@@ -70,16 +77,24 @@ void render_boot_right(int16_t* buf, size_t count) {
   boot_sound::fill(boot_jingle_right, config::kAudioSampleRateHz, buf, count);
 }
 
-void draw_telemetry() {
-  char line[imu_telemetry::kLineBufLen];
+void draw_telemetry(uint32_t now) {
   for (uint8_t i = 0; i < config::kImuCount; ++i) {
-    imu_telemetry::format_header(i, samples[i].valid, line, sizeof(line));
-    display.draw_card_header(i, line, samples[i].valid);
-    imu_telemetry::format_accel_line(samples[i], line, sizeof(line));
-    display.draw_card_value(i, 0, line);
-    imu_telemetry::format_gyro_line(samples[i], line, sizeof(line));
-    display.draw_card_value(i, 1, line);
+    display.draw_limb_status(i, samples[i].valid);
   }
+  display.draw_meter(0, sound.left.intensity.level);
+  display.draw_meter(1, sound.right.intensity.level);
+  display.draw_meter(2, sound.left.blaster.charge);
+  display.draw_meter(3, sound.right.blaster.charge);
+  display.draw_cal_status(sound.left.arm_down.valid,
+                          sound.right.arm_down.valid);
+  display.draw_system_status(sys_mux_ok, sys_audio_ok, sys_rgb_ok,
+                             sys_servos_ok);
+
+  char line[telemetry_view::kLineBufLen];
+  telemetry_view::format_flap_line(servo_angle_deg, line, sizeof(line));
+  display.draw_flap_line(line);
+  telemetry_view::format_uptime_line(now, line, sizeof(line));
+  display.draw_uptime_line(line);
 }
 
 }  // namespace
@@ -97,16 +112,17 @@ void setup() {
   Serial.printf("[audio L] %s\n", audio_left_ok ? "ok" : "FAILED");
   const bool audio_right_ok = audio_right.begin();
   Serial.printf("[audio R] %s\n", audio_right_ok ? "ok" : "FAILED");
+  sys_audio_ok = audio_left_ok && audio_right_ok;
 
-  const bool rgb_ok = rgb_leds.begin();
-  Serial.printf("[rgb] %s\n", rgb_ok ? "ok" : "FAILED");
+  sys_rgb_ok = rgb_leds.begin();
+  Serial.printf("[rgb] %s\n", sys_rgb_ok ? "ok" : "FAILED");
 
-  const bool servos_ok = servos.begin();
-  Serial.printf("[servos] %s\n", servos_ok ? "ok" : "FAILED");
+  sys_servos_ok = servos.begin();
+  Serial.printf("[servos] %s\n", sys_servos_ok ? "ok" : "FAILED");
 
   // IMU init runs while the splash is on screen.
-  const bool mux_ok = imu_array.begin();
-  Serial.printf("[imu] mux %s\n", mux_ok ? "ok" : "FAILED");
+  sys_mux_ok = imu_array.begin();
+  Serial.printf("[imu] mux %s\n", sys_mux_ok ? "ok" : "FAILED");
   for (uint8_t i = 0; i < config::kImuCount; ++i) {
     Serial.printf("[imu] %u %s: %s\n", i, imu_telemetry::limb_name(i),
                   imu_array.imu_ok(i) ? "ok" : "FAILED");
@@ -168,14 +184,14 @@ void loop() {
   if (now - last_servo_ms >= config::kServoUpdatePeriodMs) {
     last_servo_ms = now;
     // Bench-test sweep; will become flap control.
-    const float angle = servo_sweep::angle_at(now);
+    servo_angle_deg = servo_sweep::angle_at(now);
     for (uint8_t i = 0; i < config::kServoCount; ++i) {
-      servos.set_angle(i, angle);
+      servos.set_angle(i, servo_angle_deg);
     }
   }
 
   if (now - last_draw_ms >= config::kDisplayPeriodMs) {
     last_draw_ms = now;
-    draw_telemetry();
+    draw_telemetry(now);
   }
 }
