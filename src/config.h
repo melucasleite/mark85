@@ -43,9 +43,15 @@ inline constexpr uint8_t kAudioRightDoutPin = 14;   // A7
 inline constexpr uint32_t kAudioSampleRateHz = 22050;
 inline constexpr size_t kAudioChunkSamples = 128;
 
+// --- Addressable RGB (HW-159, 7-pixel jewel: index 0 center, 1-6 ring) ---
+inline constexpr uint8_t kRgbLeftPin = 9;    // D6
+inline constexpr uint8_t kRgbRightPin = 47;  // D12
+inline constexpr uint8_t kRgbLedCount = 7;
+
 // --- Scheduling ---
 inline constexpr uint32_t kImuSamplePeriodMs = 20;  // 50 Hz sensor reads
 inline constexpr uint32_t kDisplayPeriodMs = 100;   // 10 Hz screen refresh
+inline constexpr uint32_t kLedPeriodMs = 33;        // ~30 Hz LED animation
 
 // --- Serial ---
 inline constexpr uint32_t kSerialBaud = 115200;

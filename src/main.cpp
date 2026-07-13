@@ -1,6 +1,7 @@
 #include <Arduino.h>
 
 #include "config.h"
+#include "domains/blaster_charge.h"
 #include "domains/boot_sequence.h"
 #include "domains/imu_telemetry.h"
 #include "domains/imu_types.h"
@@ -8,11 +9,13 @@
 #include "drivers/audio_out.h"
 #include "drivers/display.h"
 #include "drivers/imu_array.h"
+#include "drivers/rgb_leds.h"
 
 namespace {
 
 ImuArray imu_array;
 Display display;
+RgbLeds rgb_leds;
 AudioOut audio_left(0, config::kAudioLeftBclkPin, config::kAudioLeftLrclkPin,
                     config::kAudioLeftDoutPin);
 AudioOut audio_right(1, config::kAudioRightBclkPin,
@@ -24,6 +27,7 @@ uint32_t boot_ms = 0;
 bool monitor_started = false;
 uint32_t last_sample_ms = 0;
 uint32_t last_draw_ms = 0;
+uint32_t last_led_ms = 0;
 
 // Chunk staging between the synth and a DMA queue that may accept partial
 // writes; carries the remainder into the next loop pass.
@@ -73,6 +77,9 @@ void setup() {
   const bool audio_right_ok = audio_right.begin();
   Serial.printf("[audio R] %s\n", audio_right_ok ? "ok" : "FAILED");
 
+  const bool rgb_ok = rgb_leds.begin();
+  Serial.printf("[rgb] %s\n", rgb_ok ? "ok" : "FAILED");
+
   // IMU init runs while the splash is on screen.
   const bool mux_ok = imu_array.begin();
   Serial.printf("[imu] mux %s\n", mux_ok ? "ok" : "FAILED");
@@ -98,12 +105,19 @@ void loop() {
     for (uint8_t i = 0; i < config::kImuCount; ++i) {
       imu_array.read(i, samples[i]);
     }
-    suit_sound::update_motion(sound, samples,
+    suit_sound::update_motion(sound, samples, now,
                               config::kImuSamplePeriodMs / 1000.0f);
   }
 
   pump_audio(feed_left, audio_left, suit_sound::render_left);
   pump_audio(feed_right, audio_right, suit_sound::render_right);
+
+  if (now - last_led_ms >= config::kLedPeriodMs) {
+    last_led_ms = now;
+    RgbColor jewel[blaster_charge::kLedCount];
+    blaster_charge::render_leds(sound.blaster.charge, now, jewel);
+    rgb_leds.show_left(jewel, blaster_charge::kLedCount);
+  }
 
   if (now - last_draw_ms >= config::kDisplayPeriodMs) {
     last_draw_ms = now;

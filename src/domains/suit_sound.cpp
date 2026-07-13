@@ -2,7 +2,8 @@
 
 namespace suit_sound {
 
-void update_motion(State& state, const ImuSample samples[4], float dt_s) {
+void update_motion(State& state, const ImuSample samples[4], uint32_t now_ms,
+                   float dt_s) {
   motion_intensity::update(
       state.left.intensity,
       motion_intensity::limb_pair_intensity(samples[kLeftArm],
@@ -13,12 +14,15 @@ void update_motion(State& state, const ImuSample samples[4], float dt_s) {
       motion_intensity::limb_pair_intensity(samples[kRightArm],
                                             samples[kRightLeg]),
       dt_s);
+  blaster_charge::update(state.blaster, samples[kLeftArm], now_ms, dt_s);
 }
 
 void render_left(State& state, uint32_t sample_rate_hz, int16_t* out,
                  size_t count) {
   sound_synth::fill(state.left.synth, state.left.intensity.level,
                     sample_rate_hz, out, count);
+  sound_synth::add_charge(state.charge_voice, state.blaster.charge,
+                          sample_rate_hz, out, count);
 }
 
 void render_right(State& state, uint32_t sample_rate_hz, int16_t* out,

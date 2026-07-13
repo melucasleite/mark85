@@ -31,8 +31,26 @@ struct State {
   uint32_t rng = 0x12345678u;
 };
 
+// Blaster charge-up voice: a rising sweep whose pitch and loudness follow
+// the 0..1 charge level, with a light vibrato shimmer once it's high.
+inline constexpr float kChargeBaseHz = 180.0f;
+inline constexpr float kChargeSpanHz = 1250.0f;
+inline constexpr float kChargeGain = 0.4f;
+inline constexpr float kChargeVibratoHz = 7.0f;
+inline constexpr float kChargeVibratoDepth = 0.012f;
+
+struct ChargeVoice {
+  float phase = 0.0f;
+  float vib_phase = 0.0f;
+};
+
 // Renders `count` mono int16 samples for the given intensity (clamped 0..1).
 void fill(State& state, float intensity, uint32_t sample_rate_hz,
           int16_t* out, size_t count);
+
+// Mixes the charge voice INTO an already-rendered buffer (saturating add).
+// charge 0 leaves the buffer untouched.
+void add_charge(ChargeVoice& voice, float charge, uint32_t sample_rate_hz,
+                int16_t* buf, size_t count);
 
 }  // namespace sound_synth

@@ -84,6 +84,33 @@ static void test_output_bounded_at_extremes() {
   }
 }
 
+static void test_charge_voice_silent_at_zero() {
+  sound_synth::ChargeVoice v;
+  int16_t buf[kChunk] = {};
+  sound_synth::add_charge(v, 0.0f, kRate, buf, kChunk);
+  TEST_ASSERT_EQUAL_INT16(0, peak(buf, kChunk));
+}
+
+static void test_charge_voice_adds_energy() {
+  sound_synth::ChargeVoice v;
+  int16_t buf[kChunk] = {};
+  sound_synth::add_charge(v, 0.8f, kRate, buf, kChunk);
+  TEST_ASSERT_TRUE(peak(buf, kChunk) > 4000);
+}
+
+static void test_charge_voice_mix_stays_bounded() {
+  // Saturating add on top of a full-scale buffer must clamp, not wrap.
+  sound_synth::ChargeVoice v;
+  int16_t buf[kChunk];
+  for (size_t i = 0; i < kChunk; ++i) {
+    buf[i] = (i % 2) ? 32767 : -32767;
+  }
+  sound_synth::add_charge(v, 1.0f, kRate, buf, kChunk);
+  for (size_t i = 0; i < kChunk; ++i) {
+    TEST_ASSERT_TRUE(buf[i] >= -32767 && buf[i] <= 32767);
+  }
+}
+
 int main(int argc, char** argv) {
   (void)argc;
   (void)argv;
@@ -93,5 +120,8 @@ int main(int argc, char** argv) {
   RUN_TEST(test_release_reaches_true_silence);
   RUN_TEST(test_deterministic);
   RUN_TEST(test_output_bounded_at_extremes);
+  RUN_TEST(test_charge_voice_silent_at_zero);
+  RUN_TEST(test_charge_voice_adds_energy);
+  RUN_TEST(test_charge_voice_mix_stays_bounded);
   return UNITY_END();
 }
