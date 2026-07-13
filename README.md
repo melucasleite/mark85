@@ -20,8 +20,8 @@ Servos, RGB lighting, and a status display complete the suit hardware.
 | Inline fuse F3 (4 A)                         | 1   | —          | 5 V servo rail output                          |
 | MPU-6050 IMU (GY-521 style)                  | 4   | I²C @ 0x68 | One per limb: L/R arm, L/R leg, behind the mux |
 | HW-617 I²C multiplexer (PCA9548A/TCA9548A)   | 1   | I²C @ 0x70 | 8 channels; we use 0–3                         |
-| I²S audio amp A (e.g. MAX98357A)             | 1   | I²S0       | Left speaker — left arm/leg sounds             |
-| I²S audio amp B (e.g. MAX98357A)             | 1   | I²S1       | Right speaker — right arm/leg sounds           |
+| NS4168 I²S audio amp A (mono Class-D, 3 W)   | 1   | I²S0       | Left speaker — left arm/leg sounds             |
+| NS4168 I²S audio amp B (mono Class-D, 3 W)   | 1   | I²S1       | Right speaker — right arm/leg sounds           |
 | Speaker (4–8 Ω)                              | 2   | —          | One per amp                                    |
 | Hobby servo                                  | 4   | PWM (LEDC) | Powered from the fused 5 V rail                |
 | Waveshare 1.69" LCD, 240×280, ST7789V2       | 1   | SPI        | MOSI-only (no MISO needed)                     |
@@ -156,18 +156,22 @@ Every pin of every module. Rail names refer to the power diagram above.
 | RST     | Nano D8               |
 | BL      | Nano D7               |
 
-### I²S audio amps (MAX98357A)
+### I²S audio amps (NS4168)
 
-| Amp pin       | Amp A (left)       | Amp B (right)      |
-| ------------- | ------------------ | ------------------ |
-| VIN           | 3.3 V rail         | 3.3 V rail         |
-| GND           | Common ground      | Common ground      |
-| BCLK          | Nano A0            | Nano A3            |
-| LRC           | Nano A1            | Nano A6            |
-| DIN           | Nano A2            | Nano A7            |
-| GAIN          | Unconnected (9 dB) | Unconnected (9 dB) |
-| SD            | Unconnected        | Unconnected        |
-| Speaker + / − | Left speaker       | Right speaker      |
+| Amp pin     | Amp A (left)  | Amp B (right) |
+| ----------- | ------------- | ------------- |
+| VCC         | 3.3 V rail    | 3.3 V rail    |
+| GND         | Common ground | Common ground |
+| BCLK        | Nano A0       | Nano A3       |
+| LRC / WS    | Nano A1       | Nano A6       |
+| DIN / SDATA | Nano A2       | Nano A7       |
+| OUT+ / OUT− | Left speaker  | Right speaker |
+
+The NS4168 is a mono Class-D amp with no gain or channel-select pins — just
+power, the three I²S lines, and the speaker. It needs no MCLK. Rated ~3 W
+into 4 Ω at 5 V; on the 3.3 V rail it runs quieter (~1 W), which keeps all
+logic on one rail. If more volume is ever needed, its supply can move to the
+5 V rail — the I²S inputs remain 3.3 V-compatible.
 
 ### Servos
 
@@ -209,8 +213,8 @@ graph LR
 
     SPI --> LCD["Waveshare 1.69&quot;<br/>ST7789V2 240×280"]
 
-    I2S0 --> AMPA["Amp A (MAX98357A)"] --> SPKL["Left speaker<br/>left-limb sounds"]
-    I2S1 --> AMPB["Amp B (MAX98357A)"] --> SPKR["Right speaker<br/>right-limb sounds"]
+    I2S0 --> AMPA["Amp A (NS4168)"] --> SPKL["Left speaker<br/>left-limb sounds"]
+    I2S1 --> AMPB["Amp B (NS4168)"] --> SPKR["Right speaker<br/>right-limb sounds"]
 
     PWM --> S1["Servo 1"]
     PWM --> S2["Servo 2"]
