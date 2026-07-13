@@ -3,6 +3,7 @@
 #include "config.h"
 #include "domains/blaster_charge.h"
 #include "domains/boot_sequence.h"
+#include "domains/boot_sound.h"
 #include "domains/imu_telemetry.h"
 #include "domains/imu_types.h"
 #include "domains/pose_calibration.h"
@@ -27,6 +28,7 @@ AudioOut audio_right(1, config::kAudioRightBclkPin,
 
 ImuSample samples[config::kImuCount];
 suit_sound::State sound;
+boot_sound::State boot_jingle_left, boot_jingle_right;
 // Neutral-pose gravity is captured per limb while the splash shows.
 pose_calibration::Calibrator calibrators[config::kImuCount];
 uint32_t boot_ms = 0;
@@ -48,12 +50,24 @@ AudioFeed feed_left, feed_right;
 template <typename RenderFn>
 void pump_audio(AudioFeed& feed, AudioOut& out, RenderFn render) {
   if (feed.off == feed.len) {
-    render(sound, config::kAudioSampleRateHz, feed.buf,
-           config::kAudioChunkSamples);
+    render(feed.buf, config::kAudioChunkSamples);
     feed.len = config::kAudioChunkSamples;
     feed.off = 0;
   }
   feed.off += out.write(feed.buf + feed.off, feed.len - feed.off);
+}
+
+void render_suit_left(int16_t* buf, size_t count) {
+  suit_sound::render_left(sound, config::kAudioSampleRateHz, buf, count);
+}
+void render_suit_right(int16_t* buf, size_t count) {
+  suit_sound::render_right(sound, config::kAudioSampleRateHz, buf, count);
+}
+void render_boot_left(int16_t* buf, size_t count) {
+  boot_sound::fill(boot_jingle_left, config::kAudioSampleRateHz, buf, count);
+}
+void render_boot_right(int16_t* buf, size_t count) {
+  boot_sound::fill(boot_jingle_right, config::kAudioSampleRateHz, buf, count);
 }
 
 void draw_telemetry() {
@@ -122,6 +136,9 @@ void loop() {
   }
 
   if (in_splash) {
+    // Boot jingle plays over the splash while calibration collects samples.
+    pump_audio(feed_left, audio_left, render_boot_left);
+    pump_audio(feed_right, audio_right, render_boot_right);
     return;
   }
   if (!monitor_started) {
@@ -136,8 +153,8 @@ void loop() {
     display.begin_monitor_screen();
   }
 
-  pump_audio(feed_left, audio_left, suit_sound::render_left);
-  pump_audio(feed_right, audio_right, suit_sound::render_right);
+  pump_audio(feed_left, audio_left, render_suit_left);
+  pump_audio(feed_right, audio_right, render_suit_right);
 
   if (now - last_led_ms >= config::kLedPeriodMs) {
     last_led_ms = now;

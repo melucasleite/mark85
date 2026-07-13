@@ -132,6 +132,16 @@ void Display::draw_splash() {
   };
   glitch_text("JARVIS", 4, (config::kLcdWidth - 6 * 24) / 2, 12, kCyan);
   glitch_text("MARK 85", 3, (config::kLcdWidth - 7 * 18) / 2, 244, kWhite);
+
+  // Calibration status: the wearer must hold the neutral pose while the
+  // splash is up (see pose_calibration). Size 1 = 6 px/char, 19 chars.
+  const char* status = "CALIBRATING SENSORS";
+  const int16_t status_x = (config::kLcdWidth - 19 * 6) / 2;
+  tft_.fillRect(0, 270, config::kLcdWidth, 10, ST77XX_BLACK);
+  tft_.setTextSize(1);
+  tft_.setTextColor(kCyan);
+  tft_.setCursor(status_x, 271);
+  tft_.print(status);
 }
 
 void Display::begin_monitor_screen() {
