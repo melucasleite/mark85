@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
-// One I2S TX channel feeding a MAX98357A-style amp. Two instances exist:
+// One I2S TX channel feeding an NS4168 mono Class-D amp. Two instances exist:
 // left speaker on I2S0, right speaker on I2S1. DMA-backed and non-blocking;
 // the caller keeps the queue fed from loop().
 
