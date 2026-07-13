@@ -6,11 +6,13 @@
 #include "blaster_charge.h"
 #include "imu_types.h"
 #include "motion_intensity.h"
+#include "pose_calibration.h"
 #include "sound_synth.h"
 
 // Ties limb motion to the two speakers: left limbs (L-ARM, L-LEG) drive the
-// left channel, right limbs the right channel. The left-hand blaster charge
-// voice layers on top of the left channel. Pure logic, host-testable.
+// left channel, right limbs the right channel. Each hand has a blaster —
+// raising an arm layers that side's charge voice onto its channel.
+// Pure logic, host-testable.
 
 namespace suit_sound {
 
@@ -23,17 +25,19 @@ inline constexpr uint8_t kRightLeg = 3;
 struct Side {
   motion_intensity::State intensity;
   sound_synth::State synth;
+  blaster_charge::State blaster;
+  sound_synth::ChargeVoice charge_voice;
+  // Boot-calibrated arm "down"; while invalid this side's blaster is safe.
+  pose_calibration::Reference arm_down;
 };
 
 struct State {
   Side left;
   Side right;
-  blaster_charge::State blaster;
-  sound_synth::ChargeVoice charge_voice;
 };
 
 // Feeds the latest limb samples into both sides' intensity smoothing and
-// the left-hand blaster pose/charge tracking.
+// both hands' blaster pose/charge tracking.
 void update_motion(State& state, const ImuSample samples[4], uint32_t now_ms,
                    float dt_s);
 

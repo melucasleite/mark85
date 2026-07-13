@@ -6,7 +6,6 @@ namespace blaster_charge {
 
 namespace {
 
-constexpr float kAccelLsbPerG = 16384.0f;
 constexpr float kTwoPi = 6.28318530718f;
 constexpr float kPrimedFrom = 0.95f;  // center LED ignites near full charge
 
@@ -18,16 +17,15 @@ uint8_t to_u8(float v) {
 
 }  // namespace
 
-float update(State& state, const ImuSample& left_arm, uint32_t now_ms,
-             float dt_s) {
-  const float g = left_arm.valid
-                      ? kUpSign * left_arm.accel_raw[kUpAxis] / kAccelLsbPerG
-                      : 0.0f;
+float update(State& state, const pose_calibration::Reference& down_ref,
+             const ImuSample& left_arm, uint32_t now_ms, float dt_s) {
+  // +1 = neutral pose, -1 = inverted; invalid inputs read as +1 (lowered).
+  const float dot = pose_calibration::down_dot(down_ref, left_arm);
 
-  // Hysteresis: a raised arm must drop below the lower threshold to count
-  // as lowered, and vice versa.
+  // Hysteresis: a raised arm must swing back under ~90 deg to count as
+  // lowered, and a lowered arm must pass ~120 deg to count as raised.
   const bool pose_now =
-      state.raised ? (g > kLowerThresholdG) : (g > kRaiseThresholdG);
+      state.raised ? (dot < kLowerDot) : (dot < kRaiseDot);
 
   // Debounce: the new pose must hold for kPoseDebounceMs before it latches.
   if (pose_now == state.raised) {
