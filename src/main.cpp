@@ -1,6 +1,7 @@
 #include <Arduino.h>
 
 #include "config.h"
+#include "domains/boot_sequence.h"
 #include "domains/imu_telemetry.h"
 #include "domains/imu_types.h"
 #include "drivers/display.h"
@@ -12,6 +13,8 @@ ImuArray imu_array;
 Display display;
 
 ImuSample samples[config::kImuCount];
+uint32_t boot_ms = 0;
+bool monitor_started = false;
 uint32_t last_sample_ms = 0;
 uint32_t last_draw_ms = 0;
 
@@ -41,18 +44,29 @@ void setup() {
   const bool display_ok = display.begin();
   Serial.printf("[display] %s\n", display_ok ? "ok" : "FAILED");
 
+  display.draw_splash();
+  boot_ms = millis();
+
+  // IMU init runs while the splash is on screen.
   const bool mux_ok = imu_array.begin();
   Serial.printf("[imu] mux %s\n", mux_ok ? "ok" : "FAILED");
   for (uint8_t i = 0; i < config::kImuCount; ++i) {
     Serial.printf("[imu] %u %s: %s\n", i, imu_telemetry::limb_name(i),
                   imu_array.imu_ok(i) ? "ok" : "FAILED");
   }
-
-  display.draw_line(0, "MARK85 IMU MONITOR");
 }
 
 void loop() {
   const uint32_t now = millis();
+
+  if (boot_sequence::phase_at(boot_ms, now) == boot_sequence::Phase::kSplash) {
+    return;
+  }
+  if (!monitor_started) {
+    monitor_started = true;
+    display.clear();
+    display.draw_line(0, "MARK85 IMU MONITOR");
+  }
 
   if (now - last_sample_ms >= config::kImuSamplePeriodMs) {
     last_sample_ms = now;

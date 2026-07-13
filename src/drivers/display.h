@@ -23,6 +23,12 @@ class Display {
   // Draws `text` at the given row (0..16), padded/truncated to 20 chars.
   void draw_line(uint8_t row, const char* text);
 
+  // Full-screen boot splash: "JARVIS" / Iron Man helmet / "MARK 85".
+  void draw_splash();
+
+  // Clears to black and restores the monitor text style.
+  void clear();
+
  private:
   static constexpr uint8_t kTextSize = 2;
   static constexpr uint8_t kRowHeightPx = 16;
